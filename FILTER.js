@@ -9,9 +9,28 @@
      - อ่าน Filter User / Email / Service / Department / Company
      - อ่าน Filter Year / Month
      - สร้าง Date Scope สำหรับ Governance Engine
+
+     High-risk guard:
+     - Month ใช้งานได้เฉพาะเมื่อเลือก Year แล้ว
+     - ป้องกัน Usage กับ Governance ใช้คนละ Scope
+     - ไม่แก้ Logic ของ #totalTokens, #balance, #currentTokens
   ========================================================== */
 
   const AVEVA = window.AVEVA;
+
+  AVEVA.syncYearMonthFilter = () => {
+    const yearElement = AVEVA.$('fYear');
+    const monthElement = AVEVA.$('fMonth');
+    const hasYear = Boolean(yearElement.value);
+
+    // Month ไม่มีความหมายใน Governance เมื่อไม่ได้เลือก Year
+    // จึงล้างค่าและปิดการใช้งาน เพื่อให้ Usage/Governance ใช้ Scope เดียวกัน
+    if (!hasYear) {
+      monthElement.value = '';
+    }
+
+    monthElement.disabled = !hasYear;
+  };
 
   AVEVA.fillFilters = () => {
     const usageFilters = [
@@ -59,17 +78,24 @@
 
     AVEVA.$('fMonth').innerHTML = '<option value="">All month</option>';
     months.forEach((month) => AVEVA.$('fMonth').add(new Option(month, month)));
+
+    AVEVA.syncYearMonthFilter();
   };
 
-  AVEVA.getFilters = () => ({
-    name: AVEVA.$('fUser').value,
-    email: AVEVA.$('fEmail').value,
-    service: AVEVA.$('fService').value,
-    department: AVEVA.$('fDept').value,
-    company: AVEVA.$('fCompany').value,
-    year: AVEVA.$('fYear').value,
-    month: AVEVA.$('fMonth').value
-  });
+  AVEVA.getFilters = () => {
+    const year = AVEVA.$('fYear').value;
+
+    return {
+      name: AVEVA.$('fUser').value,
+      email: AVEVA.$('fEmail').value,
+      service: AVEVA.$('fService').value,
+      department: AVEVA.$('fDept').value,
+      company: AVEVA.$('fCompany').value,
+      year,
+      // Defense in depth: ถ้าไม่มี Year ให้ Month ไม่มีผลกับ Usage ด้วย
+      month: year ? AVEVA.$('fMonth').value : ''
+    };
+  };
 
   AVEVA.filteredUsage = () => {
     const filters = AVEVA.getFilters();
