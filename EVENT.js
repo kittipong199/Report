@@ -28,13 +28,25 @@
     };
 
     document.querySelectorAll('.filters select').forEach((element) => {
-      element.onchange = AVEVA.renderDashboard;
+      element.onchange = () => {
+        // Year เป็น parent scope ของ Month
+        // ถ้าล้าง Year ให้ Month ถูกล้างและ disabled ก่อน render
+        if (element.id === 'fYear' && typeof AVEVA.syncYearMonthFilter === 'function') {
+          AVEVA.syncYearMonthFilter();
+        }
+
+        AVEVA.renderDashboard();
+      };
     });
 
     AVEVA.$('reset').onclick = () => {
       document.querySelectorAll('.filters select').forEach((element) => {
         element.value = '';
       });
+
+      if (typeof AVEVA.syncYearMonthFilter === 'function') {
+        AVEVA.syncYearMonthFilter();
+      }
 
       AVEVA.renderDashboard();
     };
