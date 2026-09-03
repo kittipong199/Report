@@ -84,14 +84,59 @@
     const governance = AVEVA.calcGov();
     const filteredUsage = AVEVA.filteredUsage();
 
+    // Cards 3-6 are LOCKED: do not change their source values or formulas.
     $('totalTokens').textContent = fmt(governance.total);
     $('balance').textContent = fmt(governance.balance);
     $('currentTokens').textContent = fmt(governance.cv);
     $('previousTokens').textContent = fmt(governance.pv);
     $('currentPeriod').textContent = `Current month ${governance.cur}`;
     $('previousPeriod').textContent = `Previous month ${governance.prev}`;
-    $('mom').textContent =
-      governance.mom == null ? 'N/A' : `${governance.mom.toFixed(1)}%`;
+
+    /* ========================================================
+       CARD 7 - PERCENTAGE SUMMARY FROM CARDS 3-6 ONLY
+
+       Card 3 = governance.total   (จำนวน Token ที่ใช้)
+       Card 4 = governance.balance (จำนวน Token ที่เหลือ)
+       Card 5 = governance.cv      (ใช้ Token สะสมเดือนนี้)
+       Card 6 = governance.pv      (ใช้ Token เดือนที่แล้ว)
+
+       A) Used % = Card3 / (Card3 + Card4) * 100
+       B) Month change % = (Card5 - Card6) / Card6 * 100
+
+       Important: this block only reads Cards 3-6 values.
+       It does not modify their calculations or displayed values.
+    ======================================================== */
+    const usedToken = governance.total;
+    const remainingToken = governance.balance;
+    const currentMonthToken = governance.cv;
+    const previousMonthToken = governance.pv;
+
+    const tokenBase =
+      Number.isFinite(usedToken) && Number.isFinite(remainingToken)
+        ? usedToken + remainingToken
+        : null;
+
+    const usedPercent =
+      tokenBase !== null && tokenBase > 0
+        ? (usedToken / tokenBase) * 100
+        : null;
+
+    const monthChangePercent =
+      Number.isFinite(currentMonthToken) &&
+      Number.isFinite(previousMonthToken) &&
+      previousMonthToken !== 0
+        ? ((currentMonthToken - previousMonthToken) / previousMonthToken) * 100
+        : null;
+
+    const usedPercentText =
+      usedPercent === null ? 'N/A' : `${usedPercent.toFixed(1)}%`;
+    const monthChangeText =
+      monthChangePercent === null
+        ? 'N/A'
+        : `${monthChangePercent >= 0 ? '+' : ''}${monthChangePercent.toFixed(1)}%`;
+
+    $('mom').textContent = `ใช้แล้ว ${usedPercentText} | เดือนนี้ ${monthChangeText}`;
+
     $('days').textContent =
       governance.days == null ? 'N/A' : fmt(governance.days, 0);
     $('burnNote').textContent =
