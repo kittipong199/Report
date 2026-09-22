@@ -1,3 +1,4 @@
+/* CONNECTS: Shared state receives loader.js data and coordinates filters, cards, charts, and tables. */
 (() => {
   'use strict';
 
@@ -8,13 +9,16 @@
 
   const AVEVA = (window.AVEVA = window.AVEVA || {});
 
-  AVEVA.BUILD_ID = 'V17-DYNAMIC-LEDGER-20260828-08';
+  AVEVA.BUILD_ID = 'V17-MGMT-REVIEW-20260921-100';
   AVEVA.ACTIVE_AGREEMENT = 'OPP-518671-EU-JPC-6955';
 
   AVEVA.data = AVEVA.data || {
     usage: [],
     tx: [],
     employees: [],
+    engineerHours: [],
+    planHours: [],
+    burndown: [],
     viewUsage: []
   };
 
@@ -59,6 +63,28 @@
       : 'N/A';
   };
 
+
+
+  AVEVA.latestDate = (dates) => {
+    const valid = (dates || []).filter((date) => date instanceof Date && !Number.isNaN(date.getTime()));
+    return valid.length ? new Date(Math.max(...valid.map((date) => date.getTime()))) : null;
+  };
+
+  AVEVA.latestDataLabel = (date) => date
+    ? `Latest data: ${date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+    : 'Latest data: N/A';
+
+  AVEVA.setLoading = (visible, message = 'Loading Excel data…') => {
+    const overlay = AVEVA.$('loadingOverlay');
+    const text = AVEVA.$('loadingMessage');
+    if (text) text.textContent = message;
+    if (overlay) {
+      overlay.hidden = !visible;
+      overlay.setAttribute('aria-hidden', String(!visible));
+    }
+    document.body.classList.toggle('is-loading', Boolean(visible));
+  };
+
   AVEVA.norm = (value) => {
     return AVEVA.text(value)
       .normalize('NFKC')
@@ -69,6 +95,8 @@
   AVEVA.buildDashboard = () => {
     AVEVA.data.viewUsage = AVEVA.enrichUsageData();
     AVEVA.fillFilters();
+    AVEVA.fillChartFilters?.();
+    AVEVA.fillTableFilters?.();
     AVEVA.renderDashboard();
   };
 
@@ -79,99 +107,24 @@
 
   AVEVA.renderDashboard = () => {
     const $ = AVEVA.$;
-    const fmt = AVEVA.fmt;
-    const dateFmt = AVEVA.dateFmt;
     const governance = AVEVA.calcGov();
     const filteredUsage = AVEVA.filteredUsage();
-
-    // Cards 3-6 are LOCKED: do not change their source values or formulas.
-    $('totalTokens').textContent = fmt(governance.total);
-    $('balance').textContent = fmt(governance.balance);
-    $('currentTokens').textContent = fmt(governance.cv);
-    $('previousTokens').textContent = fmt(governance.pv);
-    $('currentPeriod').textContent = `Current month ${governance.cur}`;
-    $('previousPeriod').textContent = `Previous month ${governance.prev}`;
-
-    /* ========================================================
-       CARD 7 - PERCENTAGE SUMMARY FROM CARDS 3-6 ONLY
-
-       Card 3 = governance.total   (จำนวน Token ที่ใช้)
-       Card 4 = governance.balance (จำนวน Token ที่เหลือ)
-       Card 5 = governance.cv      (ใช้ Token สะสมเดือนนี้)
-       Card 6 = governance.pv      (ใช้ Token เดือนที่แล้ว)
-
-       A) Used % = Card3 / (Card3 + Card4) * 100
-       B) Month change % = (Card5 - Card6) / Card6 * 100
-
-       Important: this block only reads Cards 3-6 values.
-       It does not modify their calculations or displayed values.
-    ======================================================== */
-    const usedToken = governance.total;
-    const remainingToken = governance.balance;
-    const currentMonthToken = governance.cv;
-    const previousMonthToken = governance.pv;
-
-    const tokenBase =
-      Number.isFinite(usedToken) && Number.isFinite(remainingToken)
-        ? usedToken + remainingToken
-        : null;
-
-    const usedPercent =
-      tokenBase !== null && tokenBase > 0
-        ? (usedToken / tokenBase) * 100
-        : null;
-
-    const monthChangePercent =
-      Number.isFinite(currentMonthToken) &&
-      Number.isFinite(previousMonthToken) &&
-      previousMonthToken !== 0
-        ? ((currentMonthToken - previousMonthToken) / previousMonthToken) * 100
-        : null;
-
-    const usedPercentText =
-      usedPercent === null ? 'N/A' : `${usedPercent.toFixed(1)}%`;
-    const monthChangeText =
-      monthChangePercent === null
-        ? 'N/A'
-        : `${monthChangePercent >= 0 ? '+' : ''}${monthChangePercent.toFixed(1)}%`;
-
-    $('mom').textContent = `ใช้แล้ว ${usedPercentText} | เดือนนี้ ${monthChangeText}`;
-
-    $('days').textContent =
-      governance.days == null ? 'N/A' : fmt(governance.days, 0);
-    $('burnNote').textContent =
-      `Balance / ${fmt(governance.burn)} token/day`;
-    $('risk').textContent = governance.risk;
-    $('riskNote').textContent =
-      governance.days == null
-        ? 'Balance or 30-Day Burn Rate unavailable'
-        : `${fmt(governance.days, 0)} days | ${dateFmt(governance.forecast)}`;
-    $('riskCard').className =
-      `widget ${
-        governance.risk === 'N/A'
-          ? ''
-          : `risk-${governance.risk.toLowerCase()}`
-      }`;
-    $('topService').textContent = governance.top[0];
-    $('topServiceTokens').textContent = fmt(governance.top[1]);
-    $('forecast').textContent = dateFmt(governance.forecast);
-    $('highCost').textContent = governance.high;
-
     AVEVA.drawCharts(filteredUsage, governance);
+    AVEVA.renderCreditsOverview?.(governance);
     AVEVA.renderUsageTable(filteredUsage);
 
     const scope = [
-      $('fYear').value || 'All years',
-      $('fMonth').value ? `Month ${$('fMonth').value}` : 'All months'
+      $('fYear').value || AVEVA.t('allYears'),
+      $('fMonth').value ? `${AVEVA.t('month')} ${$('fMonth').value}` : AVEVA.t('allMonths')
     ].join(' / ');
 
     $('sourceLine').textContent =
-      `Source: 5 Excel files | ` +
+      `Source: ${AVEVA.data.burndown.length ? '6 Excel files' : '5 Excel files (Burndown optional)'} | ` +
       `Agreement ${AVEVA.ACTIVE_AGREEMENT} | ` +
       `Usage ${AVEVA.data.usage.length.toLocaleString()} | ` +
       `Transactions ${AVEVA.data.tx.length.toLocaleString()} ` +
       `(${governance.filteredCount.toLocaleString()} in filter) | ` +
-      `Employees ${AVEVA.data.employees.length.toLocaleString()} | ` +
+      `AVEVA Users ${AVEVA.data.employees.length.toLocaleString()} | ` +
       `Scope ${scope}`;
   };
 
