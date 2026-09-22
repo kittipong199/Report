@@ -1,0 +1,251 @@
+/* Credits & Token Overview compact desktop layout.
+   Kept separate so protected baseline styles remain unchanged. */
+@media (min-width:901px) {
+  /* The page grows with its content so the Burndown chart is never clipped
+     (x-axis dates, zero line and negative forecast values must stay visible). */
+  .credits-overview-page {
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    grid-template-rows: none;
+    gap: 8px;
+    overflow: visible;
+  }
+
+  .credits-overview-page > .report-heading {
+    margin: 0;
+    min-height: 38px;
+  }
+  .credits-overview-page .report-heading h1 { font-size: 21px; }
+  .credits-overview-page .report-heading h1::before { height: 23px; }
+  .credits-overview-page .report-heading p { margin-top: 2px; font-size: 10px; line-height: 1.25; }
+
+  .credits-overview-page .overview-kpi-strip {
+    grid-template-columns: repeat(4,minmax(0,1fr));
+    gap: 8px;
+  }
+  .credits-overview-page .overview-kpi-strip > article {
+    min-height: 68px;
+    gap: 2px;
+    padding: 8px 12px;
+    align-content: center;
+  }
+  .credits-overview-page .overview-kpi-strip span { font-size: 9px; }
+  .credits-overview-page .overview-kpi-strip strong { font-size: 22px; line-height: 1.05; }
+  .credits-overview-page .overview-kpi-strip small { font-size: 8.5px; line-height: 1.2; }
+
+  .credits-overview-page #creditsStatusCard {
+    display: grid;
+    grid-template-columns: minmax(0,1.15fr) minmax(0,.9fr);
+    grid-template-areas: "label dates" "value dates" "days dates" "assumption assumption";
+    column-gap: 12px;
+    align-items: center;
+    min-height: 68px;
+    margin: 0;
+    padding: 8px 12px;
+    border: 1px solid #cadbe7;
+    border-radius: 10px;
+    box-shadow: 0 6px 16px rgba(9,36,62,.06);
+  }
+  .credits-overview-page #creditsStatusCard > span {
+    grid-area: label;
+    align-self: end;
+    color: #607386;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .45px;
+  }
+  .credits-overview-page #creditsStatusCard > b {
+    grid-area: value;
+    align-self: start;
+    margin: 0;
+    color: #102d49 !important;
+    font-size: 20px;
+    line-height: 1.05;
+    white-space: nowrap;
+  }
+  .credits-overview-page #creditsStatusCard > .credits-days-remaining {
+    grid-column: 1;
+    display: block;
+    margin-top: 2px;
+    color: #526579;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .credits-overview-page #creditsStatusCard dl {
+    grid-area: dates;
+    display: grid;
+    gap: 3px;
+    width: 100%;
+    margin: 0;
+  }
+  .credits-overview-page #creditsStatusCard dl > div {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 5px;
+    padding: 0;
+  }
+  .credits-overview-page #creditsStatusCard dt,
+  .credits-overview-page #creditsStatusCard dd {
+    margin: 0;
+    font-size: 8.5px;
+    line-height: 1.2;
+  }
+  .credits-overview-page #creditsStatusCard dt { color: #687b8e; }
+  .credits-overview-page #creditsStatusCard dd { color: #263743; font-weight: 750; }
+  .credits-overview-page #creditsStatusCard > .credits-depletion-assumption {
+    grid-area: assumption;
+    display: block;
+    margin-top: 3px;
+    color: #718395;
+    font-size: 7.5px;
+    font-weight: 500;
+    line-height: 1.15;
+  }
+  .credits-overview-page #creditsStatusCard.risk-green #creditsStatus { color: #17804c; }
+  .credits-overview-page #creditsStatusCard.risk-yellow #creditsStatus { color: #9b6900; }
+  .credits-overview-page #creditsStatusCard.risk-red #creditsStatus { color: #a7332a; }
+  .credits-overview-page #creditsStatusCard.status-unavailable #creditsStatus { color: #8796a3; }
+
+  .credits-overview-page .credits-active-filters {
+    min-height: 32px;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: 9px;
+  }
+  .credits-overview-page .credits-active-filters strong { font-size: 9px; }
+  .credits-overview-page .credits-filter-chip { gap: 4px; padding: 3px 7px; }
+
+  .credits-overview-page .credits-summary > .widget {
+    grid-template-columns: minmax(250px,.78fr) minmax(0,1.7fr);
+    min-height: 96px;
+    padding: 9px 16px;
+    align-items: center;
+  }
+  .credits-overview-page .credits-summary h2 { font-size: 12px; }
+  .credits-overview-page .credits-summary dl { width: min(320px,100%); margin: 5px 0 3px; }
+  .credits-overview-page .credits-summary dl > div {
+    grid-template-columns: 112px 1fr;
+    gap: 10px;
+    padding: 1px 0;
+  }
+  .credits-overview-page .credits-summary dt { font-size: 9px; }
+  .credits-overview-page .credits-summary dd { font-size: 13px; }
+  .credits-overview-page .credits-summary small { font-size: 8.5px; line-height: 1.2; }
+
+  .credits-overview-page .credits-chart-explainer {
+    min-width: 0;
+    padding-left: 16px;
+    border-left: 1px solid #d5dde3;
+    color: #526579;
+  }
+  .credits-overview-page .credits-chart-explainer > p {
+    margin: 0 0 6px;
+    font-size: 9px;
+    line-height: 1.3;
+  }
+  .credits-overview-page .forecast-status-guide {
+    grid-template-columns: repeat(4,minmax(0,1fr));
+    gap: 5px 12px;
+  }
+  .credits-overview-page .forecast-status-guide li {
+    grid-template-columns: 7px minmax(0,1fr);
+    gap: 5px;
+  }
+  .credits-overview-page .forecast-status-guide li > i {
+    width: 7px;
+    height: 7px;
+    margin-top: 3px;
+  }
+  .credits-overview-page .forecast-status-guide li > span {
+    display: block;
+  }
+  .credits-overview-page .forecast-status-guide b,
+  .credits-overview-page .forecast-status-guide small,
+  .credits-overview-page .forecast-status-guide em {
+    font-size: 7.5px;
+    line-height: 1.2;
+  }
+  .credits-overview-page .forecast-status-guide b { display: block; margin-bottom: 1px; }
+  .credits-overview-page .forecast-status-guide em { margin-top: 1px; }
+
+  .credits-overview-page .credits-chart-card {
+    min-height: 0;
+    height: auto;
+    padding: 7px 0 8px;
+  }
+  .credits-overview-page .credits-burndown-layout {
+    height: auto;
+    grid-template-columns: minmax(0,1fr) 190px;
+    padding: 0 14px;
+  }
+  .credits-overview-page .credits-burndown-plot {
+    height: auto;
+    padding-right: 12px;
+  }
+  /* Definite canvas height: prevents the devicePixelRatio resize feedback loop
+     that made the canvas taller than its container on Retina displays. */
+  .credits-overview-page .credits-burndown-plot canvas,
+  .credits-overview-page .credits-chart-card canvas {
+    display: block;
+    width: 100%;
+    height: clamp(340px, calc(100vh - 430px), 460px);
+    min-height: 340px;
+    margin-top: 0;
+  }
+  .credits-overview-page .credits-axis-title { margin-top: 2px; font-size: 10px; }
+  .credits-overview-page .credits-y-axis-title { font-size: 10px; }
+  .credits-overview-page .credits-legend {
+    gap: 8px;
+    padding: 4px 0 0 14px;
+    font-size: 9px;
+  }
+  .credits-overview-page .credits-legend legend { font-size: 10px; }
+  .credits-overview-page .credits-legend label { gap: 6px; }
+  .credits-overview-page .credits-legend label b { font-size: 9px; }
+  .credits-overview-page .credits-legend label small { font-size: 7.5px; line-height: 1.2; }
+  .credits-overview-page .credits-legend i { width: 9px; height: 9px; flex-basis: 9px; }
+}
+
+
+/* KPI card emphasis: distinct semantic colors and stronger titles. */
+.credits-overview-page .overview-kpi-strip > article {
+  border-width: 1px;
+  border-style: solid;
+  box-shadow: 0 7px 18px rgba(9,36,62,.08), inset 0 4px 0 var(--kpi-accent);
+}
+
+.credits-overview-page .overview-kpi-strip > article > span:first-child {
+  font-weight: 900;
+  letter-spacing: .5px;
+}
+
+.credits-overview-page .overview-kpi-strip > article:nth-child(1) {
+  --kpi-accent: #2b72b8;
+  background: linear-gradient(180deg,#f7fbff 0%,#eaf4ff 100%);
+  border-color: #a8c9e8;
+}
+.credits-overview-page .overview-kpi-strip > article:nth-child(1) > span:first-child { color: #245f98; }
+
+.credits-overview-page .overview-kpi-strip > article:nth-child(2) {
+  --kpi-accent: #188a78;
+  background: linear-gradient(180deg,#f7fffd 0%,#e7f7f3 100%);
+  border-color: #9fd7cc;
+}
+.credits-overview-page .overview-kpi-strip > article:nth-child(2) > span:first-child { color: #166f62; }
+
+.credits-overview-page .overview-kpi-strip > article:nth-child(3) {
+  --kpi-accent: #7656b3;
+  background: linear-gradient(180deg,#fcfaff 0%,#f1ecfb 100%);
+  border-color: #c6b6e5;
+}
+.credits-overview-page .overview-kpi-strip > article:nth-child(3) > span:first-child { color: #65479e; }
+
+.credits-overview-page .overview-kpi-strip > article:nth-child(4) {
+  --kpi-accent: #c28b11;
+  background: linear-gradient(180deg,#fffdf6 0%,#fff3d6 100%);
+  border-color: #e4c776;
+}
+.credits-overview-page .overview-kpi-strip > article:nth-child(4) > span:first-child { color: #8b650b; }

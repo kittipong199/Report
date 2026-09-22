@@ -1,58 +1,113 @@
 <!doctype html>
-<html lang="th">
+<!-- CONNECTS: Page IDs are consumed by js/*.js; styling comes from styles.css. -->
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>AVEVA User Token Focus V17</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260922-110">
+  <link rel="stylesheet" href="department-detail.css?v=20260921-102">
+  <link rel="stylesheet" href="overview-compact.css?v=20260922-107">
 </head>
 <body>
-  <header>AVEVA User Token Focus V17</header>
-  <div id="sourceLine" class="source">Source: รอโหลด Excel 5 ไฟล์</div>
-  <div class="loadbar"><strong id="status">เลือกโฟลเดอร์หรือไฟล์ Source ทั้ง 5 ไฟล์</strong><button id="loadBtn">Load / Refresh Excel</button><input id="files" type="file" accept=".xlsx,.xls" multiple hidden></div>
-  <div class="filters">
-    <label>User<select id="fUser"><option value="">All Users</option></select></label>
-    <label>Email<select id="fEmail"><option value="">All Emails</option></select></label>
-    <label>Service<select id="fService"><option value="">All Services</option></select></label>
-    <label>Department<select id="fDept"><option value="">All Departments</option></select></label>
-    <label>Company<select id="fCompany"><option value="">All Companies</option></select></label>
-    <label>Year<select id="fYear"><option value="">All Years</option></select></label>
-    <label>Month<select id="fMonth"><option value="">All Months</option></select></label>
-    <button id="reset">Reset</button>
-  </div>
-  <main id="dashboard">
-    <section class="widget-grid" data-group="kpi">
-      <article class="widget"><h3>จำนวน Token ที่ใช้</h3><b id="totalTokens">N/A</b><small>All negative token transactions</small></article>
-      <article class="widget teal"><h3>จำนวน Token ที่เหลือ</h3><b id="balance">N/A</b><small>Credit additions - token consumption</small></article>
-      <article class="widget green"><h3>ใช้ Token สะสมเดือนนี้</h3><b id="currentTokens">N/A</b><small id="currentPeriod">Current month</small></article>
-      <article class="widget purple"><h3>ใช้ Token เดือนที่แล้ว</h3><b id="previousTokens">N/A</b><small id="previousPeriod">Previous month</small></article>
-      <article class="widget"><h3>สัดส่วนการใช้ Token</h3><b id="mom">N/A</b><small>Used % | Current month vs previous month</small></article>
-      <article class="widget" id="riskCard"><h3>Risk Status</h3><b id="risk">N/A</b><small id="riskNote">30/90 day governance threshold</small></article>
-      <article class="widget"><h3>Days Remaining</h3><b id="days">N/A</b><small id="burnNote">Balance / 30-Day Burn Rate</small></article>
-      <article class="widget green"><h3>Top Service</h3><b id="topService">N/A</b><small>Largest product token consumption</small></article>
-      <article class="widget danger"><h3>คาดว่า Token หมด</h3><b id="forecast">N/A</b><small>Latest transaction date + days remaining</small></article>
-      <article class="widget"><h3>Top Service Tokens</h3><b id="topServiceTokens">N/A</b><small>Largest product token usage</small></article>
-      <article class="widget orange"><h3>High-Cost Events</h3><b id="highCost">N/A</b><small>Events &gt; 100 tokens</small></article>
+  <div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite" aria-hidden="true" hidden><div class="loading-dialog"><span class="loading-spinner" aria-hidden="true"></span><strong id="loadingMessage">Loading Excel data…</strong><small>Reading and mapping the latest report sources</small></div></div>
+  <header class="app-header"><div><strong>AVEVA Usage Dashboard</strong><small>Assigned hours, actual usage and resource consumption</small></div><span class="data-badge">LIVE EXCEL DATA</span></header>
+  <nav class="page-nav report-tabs" aria-label="Primary navigation">
+    <button class="active" type="button" data-report-page="overview">Overview</button>
+    <a class="report-nav-link" href="#token-comparison" data-report-link="token-comparison">Monthly Token Comparison</a>
+    <a class="report-nav-link" href="#usage-department" data-report-link="usage-department">Usage by Department</a>
+    <a class="report-nav-link" href="#service-mix" data-report-link="service-mix">Credit Usage by Service</a>
+    <a class="report-nav-link" href="#user-summary" data-report-link="user-summary">User Usage Summary</a>
+  </nav>
+  <div id="sourceLine" class="source" data-i18n="sourceWaiting" hidden>Source: Waiting for 5 core Excel files + optional Burndown Forecast</div>
+  <div class="loadbar compact-loadbar"><strong id="status" hidden>Attempting automatic data load…</strong><button id="loadBtn" type="button">Reload Data</button><input id="files" type="file" accept=".xlsx,.xls" multiple hidden></div>
+  <div class="report-workspace">
+  <aside class="filters" aria-label="Report filters">
+    <h2>Report Filters</h2>
+    <p class="filter-scope-note">Defaults to the current year. A complete date range overrides the current-year scope.</p>
+    <select id="fYear" hidden aria-hidden="true"><option value="" data-i18n="allYear">All Years</option></select>
+    <select id="fMonth" hidden aria-hidden="true"><option value="" data-i18n="allMonth">All Months</option></select>
+    <label><span>Start Date</span><input id="fStartDate" type="date"></label>
+    <label><span>End Date</span><input id="fEndDate" type="date"></label>
+    <label><span data-i18n="company">Company</span><select id="fCompany"><option value="" data-i18n="allCompany">All Companies</option></select></label>
+    <label><span data-i18n="department">Department</span><select id="fDept"><option value="" data-i18n="allDepartment">All Department</option></select></label>
+    <label><span>User</span><select id="fUser"><option value="">All Users</option></select></label>
+    <p class="date-filter-error" id="dateFilterError" hidden></p>
+    <button id="reset" data-i18n="reset">Reset</button>
+  </aside>
+  <main id="dashboard" class="report-content">
+    <section class="report-page credits-overview-page active" id="reportPageOverview" data-report-view="overview" data-credits-overview>
+      <div class="report-heading"><div><h1>Credits &amp; Token Overview</h1><p>Monitor remaining agreement credits, token consumption and the estimated depletion date.</p></div><span id="overviewLatestData">Latest data: N/A</span></div>
+      <section class="overview-kpi-strip" aria-label="Key credit and token metrics">
+        <article><span>Credit Balance Remaining</span><strong id="kpiCreditBalance">N/A</strong><small>Agreement-level balance</small></article>
+        <article><span>Tokens Consumed — Current Month</span><strong id="kpiCurrentTokens">N/A</strong><small id="kpiCurrentPeriod">No matching month</small></article>
+        <article><span>Total Token Usage — Selected Period</span><strong id="kpiTotalTokens">N/A</strong><small>Existing COUNT(Token) × 13 business rule</small></article>
+        <article class="credits-inline-status credits-status-card status-unavailable" id="creditsStatusCard" aria-live="polite"><span>Projected depletion</span><b id="creditsDepletion">N/A</b><small id="creditsDaysRemaining" class="credits-days-remaining">Waiting for sufficient balance history</small><dl><div><dt>Forecast status</dt><dd id="creditsStatus">N/A</dd></div><div><dt>Contract end</dt><dd id="creditsContractEnd">31 Mar 2028</dd></div></dl><small class="credits-depletion-assumption">If the current average consumption trend continues</small></article>
+      </section>
+      <section class="credits-active-filters" id="creditsActiveFilters" aria-label="Active report filters"></section>
+      <section class="credits-summary" aria-label="Credits balance and chart guidance">
+        <article class="panel widget credits-balance-card">
+          <div class="credits-balance-content"><h2>Current Credit Balance</h2><dl><div><dt>Universal credits</dt><dd id="creditsUniversal">N/A</dd></div><div><dt>Total balance</dt><dd id="creditsTotal">N/A</dd></div></dl><small id="creditsLatestDate">Waiting for Burndown Forecast data</small></div>
+          <div class="credits-chart-explainer"><p><strong>How to read this chart:</strong> Actual Balance shows the recorded remaining credits. Forecast Balance projects the current burn trend. Expected Balance is the straight-line target to reach zero at contract end.</p><ul class="forecast-status-guide" aria-label="Forecast status meanings and recommended actions"><li class="green"><i aria-hidden="true"></i><span><b>GREEN</b><small>Forecast reaches or passes the contract end.</small><em>Action: Continue normal monitoring.</em></span></li><li class="yellow"><i aria-hidden="true"></i><span><b>YELLOW</b><small>Forecast depletes before the contract end.</small><em>Action: Review high-usage services and plan mitigation.</em></span></li><li class="red"><i aria-hidden="true"></i><span><b>RED</b><small>Forecast depletes on or before the critical date.</small><em>Action: Take urgent corrective action.</em></span></li><li class="unavailable"><i aria-hidden="true"></i><span><b>N/A</b><small>Not enough data to calculate a reliable forecast.</small><em>Action: Validate and complete the source data.</em></span></li></ul></div>
+        </article>
+      </section>
+      <section class="panel widget credits-chart-card credits-burndown-card"><div class="credits-burndown-layout"><div class="credits-burndown-plot"><span class="credits-y-axis-title">Credit Balance</span><canvas id="creditsBurndownChart" role="img" aria-label="Actual balance, forecast balance and expected balance"></canvas><span class="credits-axis-title">Date</span></div><fieldset class="credits-legend"><legend>Series</legend><div><button type="button" id="selectAllCreditSeries">Select all</button><span>|</span><button type="button" id="removeAllCreditSeries">Remove all</button></div><label><input type="checkbox" data-credit-series="actual" checked><i class="actual"></i><span><b>Actual Balance</b><small>Recorded balance from the source export.</small></span></label><label><input type="checkbox" data-credit-series="forecast" checked><i class="forecast"></i><span><b>Forecast Balance</b><small>Projected from the historical average burn rate.</small></span></label><label><input type="checkbox" data-credit-series="ideal" checked><i class="ideal"></i><span><b>Expected Balance</b><small>Straight-line use from issued credits to zero at contract end.</small></span></label></fieldset></div></section>
     </section>
-    <section class="panel-grid" data-group="panel">
-      <article class="panel widget"><h2>Top Users by Usage Hours</h2><canvas id="userChart"></canvas></article>
-      <article class="panel widget"><h2>Software Usage Share by Service</h2><canvas id="serviceChart"></canvas></article>
-      <article class="panel widget wide"><h2>Monthly Usage Trend</h2><canvas id="trendChart"></canvas></article>
-      <article class="panel widget wide"><h2>Monthly Token Consumption</h2><canvas id="tokenChart"></canvas></article>
-      <article class="panel widget wide"><h2>User × Service Usage Detail</h2><div class="table"><table><thead><tr><th>User</th><th>Email</th><th>Service</th><th>Department</th><th>Company</th><th>Period</th><th>Hours</th><th>Sessions</th></tr></thead><tbody id="tbody"></tbody></table></div></article>
+
+    <section class="report-page" data-report-view="token-comparison" hidden>
+      <div class="report-heading"><div><h1>Monthly Token Comparison</h1><p>Compare token consumption with AVEVA usage hours using the Report Filters on the left.</p></div><div class="report-heading-meta"><span id="tokenLatestData">Latest data: N/A</span><span id="tokenComparisonScope">Filtered scope</span></div></div>
+      <div class="panel-grid single-report-panel"><article class="panel widget wide" id="overviewTokenComparisonCard"><h2>Monthly Tokens Consumed vs Usage Hours</h2><p class="chart-note">The chart follows Start/End Date, Year, Month, Company, Department and User filters. The current incomplete month is marked MTD.</p><canvas id="overviewTokenChart" role="img"></canvas></article></div>
     </section>
+
+    <section class="report-page" data-report-view="usage-department" hidden>
+      <div class="report-heading"><div><h1>Usage by Department</h1><p>Departments ranked by total AVEVA usage hours. Click a bar to open the Department Detail table.</p></div><span id="departmentLatestData">Latest data: N/A</span></div>
+      <div class="panel-grid single-report-panel"><article class="panel widget wide" id="usageHoursReport"><h2>Top Usage by Department</h2><p class="chart-note">Total usage hours grouped by Department. Select a bar to view the users and Cost Centres in that department.</p><div class="chart-filterbar" data-chart-filters="users"></div><canvas id="userChart" aria-label="Usage hours by department; click a bar to open Department Detail"></canvas></article></div>
+    </section>
+
+    <section class="report-page department-detail-page" data-report-view="department-detail" hidden>
+      <div class="report-heading"><div><button class="department-detail-back" type="button" data-department-back>← Back to Usage by Department</button><h1 id="departmentDetailHeading">Department Detail</h1><p id="departmentDetailSubtitle">User usage details for the selected department.</p></div><span id="departmentDetailLatestData">Latest data: N/A</span></div>
+      <div class="department-detail-kpis" id="departmentDetailSummary" aria-label="Department summary"></div>
+      <div class="panel-grid single-report-panel"><article class="panel widget wide department-detail-panel"><h2 id="departmentDetailTitle">Department Detail</h2><div class="table department-detail-table"><table><thead><tr><th>Cost Centre</th><th>User</th><th>Company</th><th>Services</th><th>Sessions</th><th>Usage Hours</th></tr></thead><tbody id="departmentDetailBody"><tr><td colspan="6">Select a department from the Usage by Department chart.</td></tr></tbody></table></div></article></div>
+    </section>
+
+    <section class="report-page" data-report-view="service-mix" hidden>
+      <div class="report-heading"><div><h1>Credit Usage by Service</h1><p>Credit consumption split by service for the selected reporting scope.</p></div><span id="serviceLatestData">Latest data: N/A</span></div>
+      <div class="panel-grid single-report-panel"><article class="panel widget wide"><h2>Credit Consumption Share by Service</h2><p class="chart-note">Percentages represent credits consumed. Organisation filters are applied by matching transaction user IDs to the AVEVA employee mapping.</p><div class="chart-filterbar" data-chart-filters="services"><label>Year<select data-chart-filter="year"><option value="">All Years</option></select></label><label>Month<select data-chart-filter="month"><option value="">All Months</option></select></label><label>Company<select data-chart-filter="company"><option value="">All Companies</option></select></label><label>Department<select data-chart-filter="department"><option value="">All Department</option></select></label><button type="button" data-chart-reset="services">Reset</button></div><div class="service-mix-layout"><div class="service-pie-wrap"><canvas id="serviceChart"></canvas></div><div id="serviceSummary" class="service-summary" aria-label="Service credit summary"></div></div></article></div>
+    </section>
+
+    <section class="report-page" data-report-view="user-summary" hidden>
+      <div class="report-heading"><div><h1>User Usage Summary</h1><p>User-level details for the selected reporting scope.</p></div></div>
+      <div class="panel-grid single-report-panel"><article class="panel widget wide"><h2>User Usage Summary</h2><div class="chart-filterbar table-filterbar" data-table-filters="users"><label>User<select data-table-filter="name"><option value="">All Users</option></select></label><label>Year<select data-table-filter="year"><option value="">All Years</option></select></label><label>Month<select data-table-filter="month"><option value="">All Months</option></select></label><label>Company<select data-table-filter="company"><option value="">All Companies</option></select></label><label>Department<select data-table-filter="department"><option value="">All Department</option></select></label><button type="button" data-table-reset="users">Reset</button></div><div class="table"><table><thead><tr><th>User</th><th>Department</th><th>Company</th><th>Service Count</th><th>Services Used</th><th>Selected Period</th><th>Total Hours</th><th>Tokens Consumed</th><th>Sessions</th><th>Hours / Session</th></tr></thead><tbody id="tbody"></tbody></table></div></article></div>
+    </section>
+
   </main>
-  <div class="toolbar"><span id="mode">VIEW</span><button id="edit">Switch to Edit Layout</button><button id="resetLayout">Reset Layout</button></div>
+  </div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/mapper.js"></script>
-  <script src="js/loader.js"></script>
-  <script src="js/filters.js"></script>
-  <script src="js/governance-engine.js"></script>
-  <script src="js/previous.js"></script>
-  <script src="js/charts.js"></script>
-  <script src="js/table.js"></script>
-  <script src="js/events.js"></script>
-  <script src="layout.js"></script>
+  <script src="js/app.js?v=20260921-100"></script>
+  <script src="js/i18n.js?v=20260920-78"></script>
+  <script src="js/embedded-data.js?v=20260922-108"></script>
+  <script src="js/charts.js?v=20260921-100"></script>
+  <script src="js/department-detail.js?v=20260921-102"></script>
+  <script src="js/credits-overview.js?v=20260921-100"></script>
+  <script src="js/core/AppConfig.js?v=20260921-oop5"></script>
+  <script src="js/core/AppState.js?v=20260921-oop1"></script>
+  <script src="js/core/Utils.js?v=20260921-oop8"></script>
+  <script src="js/core/DepartmentExclusionPolicy.js?v=20260921-oop2"></script>
+  <script src="js/data/DataMapper.js?v=20260921-oop1"></script>
+  <script src="js/data/DataRepository.js?v=20260921-oop1"></script>
+  <script src="js/data/ExcelLoader.js?v=20260921-oop1"></script>
+  <script src="js/services/FilterService.js?v=20260921-oop4"></script>
+  <script src="js/services/GovernanceService.js?v=20260921-oop5"></script>
+  <script src="js/services/CreditForecastService.js?v=20260921-oop5"></script>
+  <script src="js/services/DepartmentDrilldownService.js?v=20260921-oop1"></script>
+  <script src="js/views/ChartRenderer.js?v=20260921-oop7"></script>
+  <script src="js/views/CreditsOverviewView.js?v=20260922-oop9"></script>
+  <script src="js/views/UsageTableView.js?v=20260922-oop11"></script>
+  <script src="js/views/LoadingView.js?v=20260921-oop2"></script>
+  <script src="js/controllers/DashboardController.js?v=20260921-oop6"></script>
+  <script src="js/controllers/NavigationController.js?v=20260921-oop8"></script>
+  <script src="js/controllers/EventController.js?v=20260921-oop7"></script>
+  <script src="js/AvevaApplication.js?v=20260921-oop8"></script>
+  <script src="js/main.js?v=20260921-oop7b"></script>
 </body>
 </html>

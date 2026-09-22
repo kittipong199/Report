@@ -1,0 +1,17 @@
+/* Department Detail route styles. Kept separate so verified base styles remain unchanged. */
+.department-detail-back{margin:0 0 10px;padding:7px 11px;border:1px solid #bfd0df;border-radius:8px;background:#fff;color:#245783;font:700 10px "Segoe UI",Arial;cursor:pointer}
+.department-detail-back:hover,.department-detail-back:focus-visible{background:#edf6fb;outline:2px solid #9ac9e3;outline-offset:1px}
+.department-detail-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.department-detail-kpis article{display:grid;gap:5px;padding:13px 15px;border:1px solid #cadbe7;border-radius:10px;background:#fff;box-shadow:0 5px 14px rgba(9,36,62,.05)}
+.department-detail-kpis span{color:#687b8e;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.45px}
+.department-detail-kpis strong{color:#173f62;font-size:22px;font-variant-numeric:tabular-nums}
+.department-detail-panel{min-height:420px!important}
+.department-detail-table{max-height:620px!important;border:1px solid #dce6ef;border-radius:9px}
+.department-detail-table table{min-width:760px}
+.department-detail-table thead th{position:sticky;top:0;z-index:1;background:#edf4fa;color:#173f62;font-size:10px;font-weight:800}
+.department-detail-table tbody tr:hover{background:#f5f9fc}
+.department-detail-table td{vertical-align:top;color:#435a6d}
+.department-detail-table td:nth-child(5),.department-detail-table td:nth-child(6){white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.department-detail-table th:nth-child(5),.department-detail-table th:nth-child(6){text-align:right}
+@media(max-width:900px){.department-detail-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.department-detail-kpis{grid-template-columns:1fr 1fr;gap:8px}.department-detail-kpis strong{font-size:18px}}
