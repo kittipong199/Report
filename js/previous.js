@@ -1,3 +1,4 @@
+/* CONNECTS: Supplies previous-period calculations used by governance and token comparisons. */
 (() => {
   'use strict';
 
@@ -28,7 +29,7 @@
 
   if (!AVEVA || typeof AVEVA.calcGov !== 'function') {
     throw new Error(
-      '[AVEVA] previous-month.js ต้องโหลดหลัง governance-engine.js'
+      '[AVEVA] previous-month.js must load after governance-engine.js'
     );
   }
 
@@ -132,3 +133,4 @@
 
   console.info('[AVEVA] Previous Month Add-on', ADDON_BUILD);
 })();
+

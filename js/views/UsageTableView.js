@@ -4,13 +4,6 @@
   const OOP = (window.AVEVA_OOP = window.AVEVA_OOP || {});
   OOP.UsageTableView = class UsageTableView {
     constructor({ repository, config, utils, filterService, documentRef = document }) { Object.assign(this, { repository, config, utils, filterService, document: documentRef }); }
-    serviceTokenKey(value) {
-      const text = String(value || '').normalize('NFKC').toLowerCase().replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
-      if (/unified\s+engineering|spectrum/.test(text)) return 'unified-engineering';
-      if (/\be3d\b|everything\s*3d/.test(text)) return 'everything-3d';
-      if (/\bengineering\b/.test(text)) return 'engineering';
-      return `raw:${this.utils.normalize(text)}`;
-    }
     get filters() {
       const value = (key) => this.document.querySelector(`[data-table-filter="${key}"]`)?.value || '';
       const globalFilters = this.filterService.values;
@@ -66,7 +59,6 @@
         grouped.set(key, summary);
       });
       const tokenByUser = new Map();
-      const tokenByUserService = new Map();
       this.repository.transactions.filter((row) => row.agreementId === this.config.activeAgreement && row.token < 0 && (range
         ? row.date instanceof Date && row.date >= start && row.date <= end
         : (!filters.year || String(row.date.getFullYear()) === String(filters.year)) &&
@@ -76,17 +68,9 @@
             (filters.department && employee?.department !== filters.department)) return;
         if ((filters.name || filters.company || filters.department) && !employee) return;
         const key = this.utils.normalize(employee?.name || row.user) || row.user;
-        const token = Math.abs(row.token);
-        tokenByUser.set(key, (tokenByUser.get(key) || 0) + token);
-        const serviceKey = this.serviceTokenKey(row.product);
-        const serviceTokens = tokenByUserService.get(key) || new Map();
-        serviceTokens.set(serviceKey, (serviceTokens.get(serviceKey) || 0) + token);
-        tokenByUserService.set(key, serviceTokens);
+        tokenByUser.set(key, (tokenByUser.get(key) || 0) + Math.abs(row.token));
       });
-      grouped.forEach((summary, key) => {
-        summary.tokens = tokenByUser.get(key) || 0;
-        summary.serviceTokens = tokenByUserService.get(key) || new Map();
-      });
+      grouped.forEach((summary, key) => { summary.tokens = tokenByUser.get(key) || 0; });
       const summaries = [...grouped.values()].sort((a, b) =>
         (Number(b.tokens) || 0) - (Number(a.tokens) || 0) ||
         (Number(b.hours) || 0) - (Number(a.hours) || 0) ||
@@ -100,10 +84,7 @@
         const period = periods.length > 1 ? `${periods[0]} to ${periods[periods.length - 1]}` : periods[0] || 'N/A';
         const services = [...row.services].filter(Boolean).sort((a, b) => String(a).localeCompare(String(b), 'en', { sensitivity: 'base' }));
         const serviceList = services.length
-          ? `<div class="user-service-list">${services.map((service) => {
-              const tokens = row.serviceTokens?.get(this.serviceTokenKey(service)) || 0;
-              return `<div class="user-service-line"><span class="user-service-name">${escape(service)}</span><span class="user-service-token">${this.utils.format(tokens, 0)} tokens</span></div>`;
-            }).join('')}</div>`
+          ? `<div class="user-service-list">${services.map((service) => `<span class="user-service-chip">${escape(service)}</span>`).join('')}</div>`
           : '<span class="user-service-empty">N/A</span>';
         return `<tr><td>${escape(row.name)}</td><td>${escape(row.department)}</td><td>${escape(row.company)}</td>` +
           `<td class="user-service-count"><strong>${services.length}</strong></td><td>${serviceList}</td><td>${escape(period)}</td>` +

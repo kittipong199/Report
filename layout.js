@@ -1,1 +1,143 @@
-(()=>{const KEY='aveva-v16-layout';let edit=false,drag=null,resize=null;const items=()=>[...document.querySelectorAll('.widget')];function handles(){items().forEach((e,i)=>{e.dataset.key=e.dataset.key||e.querySelector('h2,h3')?.textContent||i;if(!e.querySelector('.resize-handle')){const h=document.createElement('i');h.className='resize-handle';e.append(h)}})}function save(){localStorage.setItem(KEY,JSON.stringify(items().map(e=>({k:e.dataset.key,p:e.parentElement.dataset.group,w:e.style.width,h:e.style.height,b:e.style.flexBasis,g:e.style.gridColumn}))))}function restore(){let a;try{a=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return}const m=new Map(items().map(e=>[e.dataset.key,e]));a.forEach(x=>{const e=m.get(x.k),p=document.querySelector(`[data-group="${x.p}"]`);if(e&&p){e.style.width=x.w;e.style.height=x.h;e.style.flexBasis=x.b;e.style.gridColumn=x.g;p.append(e)}})}function mode(v){edit=v;document.body.classList.toggle('edit-mode',v);items().forEach(e=>e.draggable=v);document.getElementById('mode').textContent=v?'EDIT LAYOUT':'VIEW';document.getElementById('edit').textContent=v?'Switch to View':'Switch to Edit Layout';if(!v)save()}document.addEventListener('dragstart',e=>{if(!edit||e.target.closest('.resize-handle'))return;drag=e.target.closest('.widget');drag.classList.add('dragging')});document.addEventListener('dragover',e=>{if(!edit||!drag)return;e.preventDefault();const t=e.target.closest('.widget');if(t&&t!==drag)t.parentElement.insertBefore(drag,e.clientX>t.getBoundingClientRect().left+t.offsetWidth/2?t.nextSibling:t)});document.addEventListener('dragend',()=>{drag?.classList.remove('dragging');drag=null;save()});document.addEventListener('pointerdown',e=>{if(!edit||!e.target.matches('.resize-handle'))return;e.preventDefault();const w=e.target.parentElement,r=w.getBoundingClientRect();w.draggable=false;resize={w,x:e.clientX,y:e.clientY,ow:r.width,oh:r.height}});document.addEventListener('pointermove',e=>{if(!resize)return;const w=Math.max(190,resize.ow+e.clientX-resize.x),h=Math.max(90,resize.oh+e.clientY-resize.y);resize.w.style.width=w+'px';resize.w.style.height=h+'px';resize.w.style.flexBasis=w+'px';resize.w.style.gridColumn='auto'});document.addEventListener('pointerup',()=>{if(resize){resize.w.draggable=edit;resize=null;save()}});document.getElementById('edit').onclick=()=>mode(!edit);document.getElementById('resetLayout').onclick=()=>{localStorage.removeItem(KEY);location.reload()};handles();restore();mode(false)})();
+/* CONNECTS: Controls movable/resizable widgets and the Edit Layout toolbar in index.html. */
+(() => {
+  'use strict';
+
+  // V2 replaces fragile index-only widget keys. Older saved layouts could move
+  // a card into another report after cards were added or removed.
+  const STORAGE_KEY = 'aveva-v17-layout-v2';
+  const editButton = document.getElementById('edit');
+  const resetButton = document.getElementById('resetLayout');
+  const modeLabel = document.getElementById('mode');
+  const widgets = () => [...document.querySelectorAll('#dashboard .widget')];
+  const initialLayout = widgets().map((widget, index) => ({
+    widget,
+    parent: widget.parentElement,
+    index
+  }));
+  let editing = false;
+  let draggedWidget = null;
+  let resizeState = null;
+
+  const assignKeysAndHandles = () => {
+    widgets().forEach((widget, index) => {
+      const group = widget.parentElement.dataset.group || 'ungrouped';
+      const label = widget.id || widget.querySelector('h2,h3')?.textContent || `widget-${index}`;
+      const stableLabel = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      widget.dataset.layoutKey ||= `${group}:${stableLabel}`;
+      if (!widget.querySelector('.resize-handle')) {
+        const handle = document.createElement('i');
+        handle.className = 'resize-handle';
+        handle.setAttribute('aria-hidden', 'true');
+        widget.append(handle);
+      }
+    });
+  };
+
+  const saveLayout = () => {
+    const layout = widgets().map((widget) => ({
+      key: widget.dataset.layoutKey,
+      group: widget.parentElement.dataset.group,
+      width: widget.style.width,
+      height: widget.style.height,
+      flexBasis: widget.style.flexBasis,
+      gridColumn: widget.style.gridColumn
+    }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(layout));
+  };
+
+  const restoreLayout = () => {
+    let saved;
+    try {
+      saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+
+    const byKey = new Map(widgets().map((widget) => [widget.dataset.layoutKey, widget]));
+    saved.forEach((item) => {
+      const widget = byKey.get(item.key);
+      const parent = document.querySelector(`[data-group="${item.group}"]`);
+      if (!widget || !parent) return;
+      widget.style.width = item.width || '';
+      widget.style.height = item.height || '';
+      widget.style.flexBasis = item.flexBasis || '';
+      widget.style.gridColumn = item.gridColumn || '';
+      parent.append(widget);
+    });
+  };
+
+  const setEditMode = (enabled) => {
+    editing = enabled;
+    document.body.classList.toggle('edit-mode', enabled);
+    widgets().forEach((widget) => { widget.draggable = enabled; });
+    modeLabel.textContent = enabled ? 'EDIT LAYOUT' : 'VIEW';
+    editButton.textContent = enabled ? 'Switch to View' : 'Switch to Edit Layout';
+    if (!enabled) saveLayout();
+  };
+
+  document.addEventListener('dragstart', (event) => {
+    if (!editing || event.target.closest('.resize-handle')) return;
+    draggedWidget = event.target.closest('#dashboard .widget');
+    draggedWidget?.classList.add('dragging');
+  });
+
+  document.addEventListener('dragover', (event) => {
+    if (!editing || !draggedWidget) return;
+    const target = event.target.closest('#dashboard .widget');
+    if (!target || target === draggedWidget || target.parentElement !== draggedWidget.parentElement) return;
+    event.preventDefault();
+    const box = target.getBoundingClientRect();
+    const insertAfter = event.clientX > box.left + box.width / 2;
+    target.parentElement.insertBefore(draggedWidget, insertAfter ? target.nextSibling : target);
+  });
+
+  document.addEventListener('dragend', () => {
+    draggedWidget?.classList.remove('dragging');
+    draggedWidget = null;
+    saveLayout();
+  });
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!editing || !event.target.matches('.resize-handle')) return;
+    event.preventDefault();
+    const widget = event.target.parentElement;
+    const box = widget.getBoundingClientRect();
+    widget.draggable = false;
+    resizeState = { widget, x: event.clientX, y: event.clientY, width: box.width, height: box.height };
+  });
+
+  document.addEventListener('pointermove', (event) => {
+    if (!resizeState) return;
+    const width = Math.max(190, resizeState.width + event.clientX - resizeState.x);
+    const height = Math.max(90, resizeState.height + event.clientY - resizeState.y);
+    resizeState.widget.style.width = `${width}px`;
+    resizeState.widget.style.height = `${height}px`;
+    resizeState.widget.style.flexBasis = `${width}px`;
+    resizeState.widget.style.gridColumn = 'auto';
+  });
+
+  document.addEventListener('pointerup', () => {
+    if (!resizeState) return;
+    resizeState.widget.draggable = editing;
+    resizeState = null;
+    saveLayout();
+    window.dispatchEvent(new Event('resize'));
+  });
+
+  editButton.onclick = () => setEditMode(!editing);
+  resetButton.onclick = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    initialLayout.forEach(({ widget, parent }) => {
+      widget.removeAttribute('style');
+      parent.append(widget);
+    });
+    setEditMode(false);
+    window.dispatchEvent(new Event('resize'));
+  };
+
+  assignKeysAndHandles();
+  restoreLayout();
+  setEditMode(false);
+})();
+

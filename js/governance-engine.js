@@ -1,3 +1,4 @@
+/* CONNECTS: Consumes mapper.js credit rows and returns token/risk KPIs to app.js and charts.js. */
 (() => {
   'use strict';
 
@@ -12,7 +13,7 @@
   ========================================================== */
 
   const AVEVA = window.AVEVA;
-  const GOVERNANCE_BUILD = 'V17-GOV-COUNT-X13-DATE-FIX-20260831-03';
+  const GOVERNANCE_BUILD = 'V17-MGMT-FILTERS-20260921-100';
   const TOKEN_PER_TRANSACTION = 13;
 
   console.info('[AVEVA] Governance Engine', GOVERNANCE_BUILD);
@@ -20,9 +21,16 @@
   AVEVA.calcGov = () => {
     const scope = AVEVA.dateScope();
 
-    // ใช้เฉพาะ Transaction ของ Agreement ที่ Dashboard กำหนด
-    const all = AVEVA.data.tx.filter(
+    // Balance/forecast use the complete agreement ledger. Usage KPIs use the same
+    // Company / Department / User filters as the rest of the dashboard.
+    const ledgerAll = AVEVA.data.tx.filter(
       (row) => row.agreementId === AVEVA.ACTIVE_AGREEMENT
+    );
+    const all = AVEVA.filterTransactionsByOrganization
+      ? AVEVA.filterTransactionsByOrganization(ledgerAll, AVEVA.getFilters())
+      : ledgerAll;
+    const burndownAll = [...(AVEVA.data.burndown || [])].sort(
+      (a, b) => a.date - b.date || b.sourceOrder - a.sourceOrder
     );
 
     // Transaction ภายใน Year / Month ที่ผู้ใช้เลือก
@@ -48,8 +56,7 @@
       0
     );
 
-    const dates = all
-      .map((row) => row.date)
+    const dates = [...ledgerAll.map((row) => row.date), ...burndownAll.map((row) => row.date)]
       .filter((date) => date instanceof Date && !Number.isNaN(date.getTime()));
 
     if (!dates.length) {
@@ -64,10 +71,15 @@
         burn: null,
         days: null,
         forecast: null,
+        contractEndDate: null,
+        actualBalanceSeries: [],
+        forecastSource: 'Unavailable',
         risk: 'N/A',
         top: ['N/A', 0],
         high: 0,
         monthly: new Map(),
+        monthlyTrend: new Map(),
+        serviceConsumption: new Map(),
         filteredCount: 0,
         periodTokenUsed: 0,
         periodTokenRowCount: 0,
@@ -82,7 +94,7 @@
         ? new Date(Math.max(...dates.map((date) => date.getTime())))
         : scope.end;
 
-    const ledgerToCutoff = all.filter((row) => row.date <= cutoff);
+    const ledgerToCutoff = ledgerAll.filter((row) => row.date <= cutoff);
 
     // หา Balance Snapshot ล่าสุดก่อนหรือเท่ากับ Cutoff
     const snapshotCandidates = ledgerToCutoff.filter(
@@ -104,10 +116,20 @@
      * AVEVA Export เป็น newest-first เมื่อหลาย Row แสดง Timestamp เดียวกัน
      * จึงใช้ Row แรกตาม sourceOrder เช่นเดียวกับ Logic เดิม
      */
-    const snapshot = sameTime[0] || null;
+    const transactionSnapshot = sameTime[0] || null;
+    const burndownToCutoff = burndownAll.filter((row) => row.date <= cutoff);
+    const burndownSnapshot = burndownToCutoff[burndownToCutoff.length - 1] || null;
 
-    // การ์ด #balance ใช้ Column1.balance_universal ของวันที่ล่าสุดใน Scope
-    const balance = snapshot?.balanceUniversal ?? null;
+    // Burndown is the authoritative exported balance snapshot. Credit
+    // Transactions remain the fallback and supply consumption after export.
+    const snapshotDate = burndownSnapshot?.date || transactionSnapshot?.date || null;
+    const transactionsAfterSnapshot = snapshotDate
+      ? ledgerAll.filter((row) => row.date > snapshotDate && row.date <= cutoff)
+      : [];
+
+    const balance = burndownSnapshot
+      ? burndownSnapshot.balance + transactionsAfterSnapshot.reduce((sum, row) => sum + row.token, 0)
+      : transactionSnapshot?.balanceUniversal ?? null;
 
     const creditsIssued = ledgerToCutoff
       .filter((row) => row.token > 0)
@@ -186,8 +208,11 @@
         ? ((currentValue - previousValue) / previousValue) * 100
         : null;
 
-    // Burn Rate 30 วันย้อนหลังจาก Balance Snapshot ล่าสุด
-    const latest = snapshot?.date || null;
+    // Burn Rate 30 วันย้อนหลัง: use Burndown Export when present, otherwise
+    // fall back to Credit Transactions. Positive credit additions are excluded.
+    const latest = transactionsAfterSnapshot.length
+      ? new Date(Math.max(...transactionsAfterSnapshot.map((row) => row.date.getTime())))
+      : snapshotDate;
     const start = latest ? new Date(latest) : null;
 
     if (start) {
@@ -195,8 +220,11 @@
       start.setHours(0, 0, 0, 0);
     }
 
+    const burnSource = burndownToCutoff.length
+      ? [...burndownToCutoff, ...transactionsAfterSnapshot]
+      : ledgerAll;
     const last30 = latest
-      ? all
+      ? burnSource
           .filter(
             (row) =>
               row.token < 0 && row.date >= start && row.date <= latest
@@ -216,13 +244,36 @@
         ? new Date(latest.getTime() + daysRemaining * 864e5)
         : null;
 
-    // Risk Logic เดิม: <=30 RED, <90 YELLOW, ตั้งแต่ 90 ขึ้นไป GREEN
+    const dailyBalances = new Map();
+    burndownToCutoff.forEach((row) => {
+      const key = `${row.date.getFullYear()}-${String(row.date.getMonth() + 1).padStart(2, '0')}-${String(row.date.getDate()).padStart(2, '0')}`;
+      dailyBalances.set(key, { date: row.date, balance: row.balance });
+    });
+    const actualBalanceSeries = [...dailyBalances.values()].sort((a, b) => a.date - b.date);
+
+    // Annual contract cycle: 01-Apr through 31-Mar of the following year.
+    // Derive the active cycle from the latest balance snapshot so the risk
+    // never assumes that the current token balance carries into later renewals.
+    const contractEndYear = latest
+      ? latest.getFullYear() + (latest.getMonth() >= 3 ? 1 : 0)
+      : null;
+    const contractEndDate = contractEndYear === null
+      ? null
+      : new Date(contractEndYear, 2, 31, 23, 59, 59, 999);
+    const octoberStart = contractEndYear === null
+      ? null
+      : new Date(contractEndYear - 1, 9, 1, 0, 0, 0, 0);
+    const nextContractStart = contractEndYear === null
+      ? null
+      : new Date(contractEndYear, 3, 1, 0, 0, 0, 0);
     const risk =
-      daysRemaining === null
+      balance === null
         ? 'N/A'
-        : daysRemaining <= 30
+        : burnRate === null
+          ? 'GREEN'
+          : forecast < octoberStart
           ? 'RED'
-          : daysRemaining < 90
+          : forecast < nextContractStart
             ? 'YELLOW'
             : 'GREEN';
 
@@ -235,6 +286,15 @@
         (serviceConsumption.get(row.product) || 0) + Math.abs(row.token)
       );
     });
+
+    // Trend charts intentionally ignore the Month filter so a selected month
+    // does not collapse a trend into one bar. Year remains the trend scope.
+    const selectedTrendYear = AVEVA.$('fYear').value;
+    const monthlyTrend = new Map(
+      [...allMonthly.entries()].filter(([period]) =>
+        !selectedTrendYear || period.startsWith(`${selectedTrendYear}-`)
+      )
+    );
 
     const topService = [...serviceConsumption.entries()].sort(
       (a, b) => b[1] - a[1]
@@ -288,15 +348,14 @@
         balanceTotal: row.balanceTotal,
         balanceUniversal: row.balanceUniversal
       })),
-      selectedSnapshot: snapshot
+      selectedSnapshot: burndownSnapshot || transactionSnapshot
         ? {
-            source: snapshot.source,
-            sourceSheet: snapshot.sourceSheet,
-            sourceRow: snapshot.sourceRow,
-            sourceOrder: snapshot.sourceOrder,
-            token: snapshot.token,
-            balanceTotal: snapshot.balanceTotal,
-            balanceUniversal: snapshot.balanceUniversal
+            source: (burndownSnapshot || transactionSnapshot).source,
+            sourceSheet: transactionSnapshot?.sourceSheet,
+            sourceRow: transactionSnapshot?.sourceRow,
+            sourceOrder: (burndownSnapshot || transactionSnapshot).sourceOrder,
+            token: (burndownSnapshot || transactionSnapshot).token,
+            balanceUniversal: balance
           }
         : null
     });
@@ -312,10 +371,20 @@
       burn: burnRate,
       days: daysRemaining,
       forecast,
+      contractEndDate,
+      actualBalanceSeries,
+      startingTokens: actualBalanceSeries.length
+        ? Math.max(...actualBalanceSeries.map((row) => row.balance))
+        : null,
+      forecastSource: burndownToCutoff.length
+        ? 'Burndown snapshot + Credit Transactions after snapshot'
+        : 'Credit Transactions fallback',
       risk,
       top: topService,
       high: consumption.filter((row) => Math.abs(row.token) > 100).length,
       monthly,
+      monthlyTrend,
+      serviceConsumption,
       filteredCount: sourceTx.length,
 
       // ค่า Debug สำหรับตรวจ Column1.Token ของเดือนที่เลือก
@@ -325,3 +394,4 @@
     };
   };
 })();
+
