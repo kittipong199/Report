@@ -8,6 +8,17 @@
   <link rel="stylesheet" href="styles.css?v=20260922-110">
   <link rel="stylesheet" href="department-detail.css?v=20260921-102">
   <link rel="stylesheet" href="overview-compact.css?v=20260922-107">
+  <style id="userSummaryServiceTokenStyles">
+    .user-service-list{display:grid;gap:6px;min-width:280px}
+    .user-service-line{display:grid;grid-template-columns:minmax(140px,1fr) max-content;gap:10px;align-items:center;padding:5px 8px;border:1px solid #dbe8f2;border-radius:8px;background:#f8fbfd}
+    .user-service-name{min-width:0;color:#244765;font-size:10px;font-weight:700;line-height:1.25}
+    .user-service-token{display:inline-flex;align-items:center;justify-content:center;min-width:74px;padding:3px 7px;border-radius:999px;background:#e7f3fb;color:#12628f;font-size:10px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .user-service-empty{color:#7b8c9c;font-size:10px}
+    .user-service-count strong{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border-radius:999px;background:#e6f3fb;color:#12628f;font-size:12px;font-weight:900}
+    [data-report-view="user-summary"] .table table{min-width:1320px}
+    [data-report-view="user-summary"] .table th:nth-child(5),[data-report-view="user-summary"] .table td:nth-child(5){min-width:310px}
+    @media(max-width:900px){.user-service-list{min-width:240px}.user-service-line{grid-template-columns:minmax(120px,1fr) max-content}}
+  </style>
 </head>
 <body>
   <div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite" aria-hidden="true" hidden><div class="loading-dialog"><span class="loading-spinner" aria-hidden="true"></span><strong id="loadingMessage">Loading Excel data…</strong><small>Reading and mapping the latest report sources</small></div></div>
@@ -102,7 +113,88 @@
   <script src="js/services/DepartmentDrilldownService.js?v=20260921-oop1"></script>
   <script src="js/views/ChartRenderer.js?v=20260921-oop7"></script>
   <script src="js/views/CreditsOverviewView.js?v=20260922-oop9"></script>
-  <script src="js/views/UsageTableView.js?v=20260922-oop11"></script>
+  <script src="js/views/UsageTableView.js?v=20260923-oop12"></script>
+  <script id="userSummaryServiceTokenPatch">
+  (() => {
+    'use strict';
+    const OOP = window.AVEVA_OOP;
+    if (!OOP?.UsageTableView) return;
+    const proto = OOP.UsageTableView.prototype;
+    proto.serviceTokenKey = function serviceTokenKey(value) {
+      const text = String(value || '').normalize('NFKC').toLowerCase().replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
+      if (/unified\s+engineering|spectrum/.test(text)) return 'unified-engineering';
+      if (/\be3d\b|everything\s*3d/.test(text)) return 'everything-3d';
+      if (/\bengineering\b/.test(text)) return 'engineering';
+      return `raw:${this.utils.normalize(text)}`;
+    };
+    proto.render = function renderUserUsageWithServiceTokens() {
+      const filters = this.filters;
+      const range = filters.startDate && filters.endDate;
+      const start = range ? new Date(`${filters.startDate}T00:00:00`) : null;
+      const end = range ? new Date(`${filters.endDate}T23:59:59.999`) : null;
+      const rows = this.repository.viewUsage.filter((row) =>
+        (!filters.name || row.name === filters.name) && (!filters.company || row.company === filters.company) &&
+        (!filters.department || row.department === filters.department) && (range
+          ? row.start instanceof Date && row.start >= start && row.start <= end
+          : (!filters.year || String(row.year) === String(filters.year)) && (!filters.month || String(row.month) === String(filters.month))));
+      const grouped = new Map();
+      rows.forEach((row) => {
+        const key = this.utils.normalize(row.name) || row.email;
+        const summary = grouped.get(key) || { ...row, hours: 0, sessions: 0, services: new Set(), periods: new Set() };
+        summary.hours += row.hours; summary.sessions += 1;
+        if (row.service) summary.services.add(row.service);
+        if (row.period) summary.periods.add(row.period);
+        grouped.set(key, summary);
+      });
+      const tokenByUser = new Map();
+      const tokenByUserService = new Map();
+      this.repository.transactions.filter((row) => row.agreementId === this.config.activeAgreement && row.token < 0 && (range
+        ? row.date instanceof Date && row.date >= start && row.date <= end
+        : (!filters.year || String(row.date.getFullYear()) === String(filters.year)) &&
+          (!filters.month || String(row.date.getMonth() + 1) === String(filters.month)))).forEach((row) => {
+        const employee = this.repository.findEmployee(row.user);
+        if ((filters.name && employee?.name !== filters.name) || (filters.company && employee?.company !== filters.company) ||
+            (filters.department && employee?.department !== filters.department)) return;
+        if ((filters.name || filters.company || filters.department) && !employee) return;
+        const key = this.utils.normalize(employee?.name || row.user) || row.user;
+        const token = Math.abs(row.token);
+        tokenByUser.set(key, (tokenByUser.get(key) || 0) + token);
+        const serviceKey = this.serviceTokenKey(row.product);
+        const serviceTokens = tokenByUserService.get(key) || new Map();
+        serviceTokens.set(serviceKey, (serviceTokens.get(serviceKey) || 0) + token);
+        tokenByUserService.set(key, serviceTokens);
+      });
+      grouped.forEach((summary, key) => {
+        summary.tokens = tokenByUser.get(key) || 0;
+        summary.serviceTokens = tokenByUserService.get(key) || new Map();
+      });
+      const summaries = [...grouped.values()].sort((a, b) =>
+        (Number(b.tokens) || 0) - (Number(a.tokens) || 0) ||
+        (Number(b.hours) || 0) - (Number(a.hours) || 0) ||
+        String(a.name).localeCompare(String(b.name), 'en', { sensitivity: 'base' })
+      ).slice(0, 500);
+      const body = this.document.getElementById('tbody');
+      if (!body) return summaries;
+      const escape = (value) => this.utils.escapeHtml(value);
+      body.innerHTML = summaries.length ? summaries.map((row) => {
+        const periods = [...row.periods].sort();
+        const period = periods.length > 1 ? `${periods[0]} to ${periods[periods.length - 1]}` : periods[0] || 'N/A';
+        const services = [...row.services].filter(Boolean).sort((a, b) => String(a).localeCompare(String(b), 'en', { sensitivity: 'base' }));
+        const serviceList = services.length
+          ? `<div class="user-service-list">${services.map((service) => {
+              const tokens = row.serviceTokens?.get(this.serviceTokenKey(service)) || 0;
+              return `<div class="user-service-line"><span class="user-service-name">${escape(service)}</span><span class="user-service-token">${this.utils.format(tokens, 0)} tokens</span></div>`;
+            }).join('')}</div>`
+          : '<span class="user-service-empty">N/A</span>';
+        return `<tr><td>${escape(row.name)}</td><td>${escape(row.department)}</td><td>${escape(row.company)}</td>` +
+          `<td class="user-service-count"><strong>${services.length}</strong></td><td>${serviceList}</td><td>${escape(period)}</td>` +
+          `<td>${this.utils.format(row.hours)}</td><td>${this.utils.format(row.tokens, 0)}</td>` +
+          `<td>${row.sessions}</td><td>${this.utils.format(row.sessions ? row.hours / row.sessions : 0)}</td></tr>`;
+      }).join('') : '<tr><td colspan="10">No users found for the selected filters</td></tr>';
+      return summaries;
+    };
+  })();
+  </script>
   <script src="js/views/LoadingView.js?v=20260921-oop2"></script>
   <script src="js/controllers/DashboardController.js?v=20260921-oop6"></script>
   <script src="js/controllers/NavigationController.js?v=20260921-oop8"></script>
