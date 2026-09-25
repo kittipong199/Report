@@ -10,7 +10,6 @@
         burndown: [], viewUsage: [],
         ...initialData
       };
-      this.filters = { company: '', department: '', user: '', year: '', month: '', startDate: '', endDate: '' };
       this.chartVisibility = { actual: true, forecast: true, ideal: true };
       this.selectedDepartment = '';
       this.loading = false;

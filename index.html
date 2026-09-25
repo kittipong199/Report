@@ -33,19 +33,6 @@
   <div id="sourceLine" class="source" data-i18n="sourceWaiting" hidden>Source: Waiting for 5 core Excel files + optional Burndown Forecast</div>
   <div class="loadbar compact-loadbar"><strong id="status" hidden>Attempting automatic data load…</strong><button id="loadBtn" type="button">Reload Data</button><input id="files" type="file" accept=".xlsx,.xls" multiple hidden></div>
   <div class="report-workspace">
-  <aside class="filters" aria-label="Report filters">
-    <h2>Report Filters</h2>
-    <p class="filter-scope-note">Defaults to the current year. A complete date range overrides the current-year scope.</p>
-    <select id="fYear" hidden aria-hidden="true"><option value="" data-i18n="allYear">All Years</option></select>
-    <select id="fMonth" hidden aria-hidden="true"><option value="" data-i18n="allMonth">All Months</option></select>
-    <label><span>Start Date</span><input id="fStartDate" type="date"></label>
-    <label><span>End Date</span><input id="fEndDate" type="date"></label>
-    <label><span data-i18n="company">Company</span><select id="fCompany"><option value="" data-i18n="allCompany">All Companies</option></select></label>
-    <label><span data-i18n="department">Department</span><select id="fDept"><option value="" data-i18n="allDepartment">All Department</option></select></label>
-    <label><span>User</span><select id="fUser"><option value="">All Users</option></select></label>
-    <p class="date-filter-error" id="dateFilterError" hidden></p>
-    <button id="reset" data-i18n="reset">Reset</button>
-  </aside>
   <main id="dashboard" class="report-content">
     <section class="report-page credits-overview-page active" id="reportPageOverview" data-report-view="overview" data-credits-overview>
       <div class="report-heading"><div><h1>Credits &amp; Token Overview</h1><p>Monitor remaining agreement credits, token consumption and the estimated depletion date.</p></div><span id="overviewLatestData">Latest data: N/A</span></div>
@@ -55,10 +42,8 @@
         <article><span>Total Token Usage — Selected Period</span><strong id="kpiTotalTokens">N/A</strong><small>Existing COUNT(Token) × 13 business rule</small></article>
         <article class="credits-inline-status credits-status-card status-unavailable" id="creditsStatusCard" aria-live="polite"><span>Projected depletion</span><b id="creditsDepletion">N/A</b><small id="creditsDaysRemaining" class="credits-days-remaining">Waiting for sufficient balance history</small><dl><div><dt>Forecast status</dt><dd id="creditsStatus">N/A</dd></div><div><dt>Contract end</dt><dd id="creditsContractEnd">31 Mar 2028</dd></div></dl><small class="credits-depletion-assumption">If the current average consumption trend continues</small></article>
       </section>
-      <section class="credits-active-filters" id="creditsActiveFilters" aria-label="Active report filters"></section>
-      <section class="credits-summary" aria-label="Credits balance and chart guidance">
-        <article class="panel widget credits-balance-card">
-          <div class="credits-balance-content"><h2>Current Credit Balance</h2><dl><div><dt>Universal credits</dt><dd id="creditsUniversal">N/A</dd></div><div><dt>Total balance</dt><dd id="creditsTotal">N/A</dd></div></dl><small id="creditsLatestDate">Waiting for Burndown Forecast data</small></div>
+      <section class="credits-summary" aria-label="Chart guidance">
+        <article class="panel widget credits-guidance-card">
           <div class="credits-chart-explainer"><p><strong>How to read this chart:</strong> Actual Balance shows the recorded remaining credits. Forecast Balance projects the current burn trend. Expected Balance is the straight-line target to reach zero at contract end.</p><ul class="forecast-status-guide" aria-label="Forecast status meanings and recommended actions"><li class="green"><i aria-hidden="true"></i><span><b>GREEN</b><small>Forecast reaches or passes the contract end.</small><em>Action: Continue normal monitoring.</em></span></li><li class="yellow"><i aria-hidden="true"></i><span><b>YELLOW</b><small>Forecast depletes before the contract end.</small><em>Action: Review high-usage services and plan mitigation.</em></span></li><li class="red"><i aria-hidden="true"></i><span><b>RED</b><small>Forecast depletes on or before the critical date.</small><em>Action: Take urgent corrective action.</em></span></li><li class="unavailable"><i aria-hidden="true"></i><span><b>N/A</b><small>Not enough data to calculate a reliable forecast.</small><em>Action: Validate and complete the source data.</em></span></li></ul></div>
         </article>
       </section>
@@ -66,29 +51,47 @@
     </section>
 
     <section class="report-page" data-report-view="token-comparison" hidden>
-      <div class="report-heading"><div><h1>Monthly Token Comparison</h1><p>Compare token consumption with AVEVA usage hours using the Report Filters on the left.</p></div><div class="report-heading-meta"><span id="tokenLatestData">Latest data: N/A</span><span id="tokenComparisonScope">Filtered scope</span></div></div>
-      <div class="panel-grid single-report-panel"><article class="panel widget wide" id="overviewTokenComparisonCard"><h2>Monthly Tokens Consumed vs Usage Hours</h2><p class="chart-note">The chart follows Start/End Date, Year, Month, Company, Department and User filters. The current incomplete month is marked MTD.</p><canvas id="overviewTokenChart" role="img"></canvas></article></div>
+      <div class="report-heading"><div><h1>Monthly Token Comparison</h1><p>Compare token consumption with AVEVA usage hours across all companies.</p></div><div class="report-heading-meta"><span id="tokenLatestData">Latest data: N/A</span><span id="tokenComparisonScope">Reporting period</span></div></div>
+      <div class="panel-grid single-report-panel"><article class="panel widget wide" id="overviewTokenComparisonCard"><h2>Monthly Tokens Consumed vs Usage Hours</h2><p class="chart-note">Both series use one numerical scale. The current incomplete month is marked MTD.</p><div class="token-comparison-toolbar">
+          <label><span>Start Date</span><input id="tokenComparisonStartDate" type="date" aria-describedby="tokenComparisonDateError"></label>
+          <label><span>End Date</span><input id="tokenComparisonEndDate" type="date" aria-describedby="tokenComparisonDateError"></label>
+          <button id="tokenComparisonReset" type="button">Reset</button>
+        </div><p id="tokenComparisonDateError" class="date-filter-error" role="status" hidden></p><canvas id="overviewTokenChart" role="img"></canvas></article></div>
     </section>
 
     <section class="report-page" data-report-view="usage-department" hidden>
       <div class="report-heading"><div><h1>Usage by Department</h1><p>Departments ranked by total AVEVA usage hours. Click a bar to open the Department Detail table.</p></div><span id="departmentLatestData">Latest data: N/A</span></div>
-      <div class="panel-grid single-report-panel"><article class="panel widget wide" id="usageHoursReport"><h2>Top Usage by Department</h2><p class="chart-note">Total usage hours grouped by Department. Select a bar to view the users and Cost Centres in that department.</p><div class="chart-filterbar" data-chart-filters="users"></div><canvas id="userChart" aria-label="Usage hours by department; click a bar to open Department Detail"></canvas></article></div>
+      <div class="panel-grid single-report-panel"><article class="panel widget wide" id="usageHoursReport"><h2>Top Usage by Department</h2><p class="chart-note">Total usage hours grouped by Department. Select a bar to view the users and Cost Centres in that department.</p><div class="department-filter-toolbar" role="group" aria-label="Usage by Department filters">
+          <label>Start Date<input id="departmentStartDate" data-department-filter="startDate" type="date" aria-describedby="departmentDateFilterError"></label>
+          <label>End Date<input id="departmentEndDate" data-department-filter="endDate" type="date" aria-describedby="departmentDateFilterError"></label>
+          <label>Company<select id="departmentCompany" data-department-filter="company"></select></label>
+          <label>Department<select id="departmentDepartment" data-department-filter="department"></select></label>
+          <button id="departmentFilterReset" type="button">Reset</button>
+        </div><p id="departmentDateFilterError" class="date-filter-error" role="status" hidden></p><canvas id="userChart" aria-label="Usage hours by department; click a bar to open Department Detail"></canvas></article></div>
     </section>
 
     <section class="report-page department-detail-page" data-report-view="department-detail" hidden>
       <div class="report-heading"><div><button class="department-detail-back" type="button" data-department-back>← Back to Usage by Department</button><h1 id="departmentDetailHeading">Department Detail</h1><p id="departmentDetailSubtitle">User usage details for the selected department.</p></div><span id="departmentDetailLatestData">Latest data: N/A</span></div>
       <div class="department-detail-kpis" id="departmentDetailSummary" aria-label="Department summary"></div>
-      <div class="panel-grid single-report-panel"><article class="panel widget wide department-detail-panel"><h2 id="departmentDetailTitle">Department Detail</h2><div class="table department-detail-table"><table><thead><tr><th>Cost Centre</th><th>User</th><th>Company</th><th>Services</th><th>Sessions</th><th>Usage Hours</th></tr></thead><tbody id="departmentDetailBody"><tr><td colspan="6">Select a department from the Usage by Department chart.</td></tr></tbody></table></div></article></div>
+      <div class="panel-grid single-report-panel"><article class="panel widget wide department-detail-panel"><h2 id="departmentDetailTitle">Department Detail</h2><div class="department-detail-toolbar"><button id="departmentClearColumnFilters" type="button">Clear Column Filters</button></div><div class="table department-detail-table"><table><thead><tr><th>Cost Centre</th><th>User</th><th>Company</th><th>Services</th><th>Sessions</th><th>Usage Hours</th></tr></thead><tbody id="departmentDetailBody"><tr><td colspan="6">Select a department from the Usage by Department chart.</td></tr></tbody></table></div></article></div>
     </section>
 
     <section class="report-page" data-report-view="service-mix" hidden>
-      <div class="report-heading"><div><h1>Credit Usage by Service</h1><p>Credit consumption split by service for the selected reporting scope.</p></div><span id="serviceLatestData">Latest data: N/A</span></div>
-      <div class="panel-grid single-report-panel"><article class="panel widget wide"><h2>Credit Consumption Share by Service</h2><p class="chart-note">Percentages represent credits consumed. Organisation filters are applied by matching transaction user IDs to the AVEVA employee mapping.</p><div class="chart-filterbar" data-chart-filters="services"><label>Year<select data-chart-filter="year"><option value="">All Years</option></select></label><label>Month<select data-chart-filter="month"><option value="">All Months</option></select></label><label>Company<select data-chart-filter="company"><option value="">All Companies</option></select></label><label>Department<select data-chart-filter="department"><option value="">All Department</option></select></label><button type="button" data-chart-reset="services">Reset</button></div><div class="service-mix-layout"><div class="service-pie-wrap"><canvas id="serviceChart"></canvas></div><div id="serviceSummary" class="service-summary" aria-label="Service credit summary"></div></div></article></div>
+      <div class="report-heading"><div><h1>Credit Usage by Service</h1><p>Credit consumption split by service across all companies.</p></div><span id="serviceLatestData">Latest data: N/A</span></div>
+      <div class="panel-grid single-report-panel"><article class="panel widget wide"><h2>Credit Consumption Share by Service</h2><p class="chart-note">Percentages represent credits consumed across all companies in the default reporting period.</p><div class="service-mix-layout"><div class="service-pie-wrap"><canvas id="serviceChart"></canvas></div><div id="serviceSummary" class="service-summary" aria-label="Service credit summary"></div></div></article></div>
     </section>
 
     <section class="report-page" data-report-view="user-summary" hidden>
       <div class="report-heading"><div><h1>User Usage Summary</h1><p>User-level details for the selected reporting scope.</p></div></div>
-      <div class="panel-grid single-report-panel"><article class="panel widget wide"><h2>User Usage Summary</h2><div class="chart-filterbar table-filterbar" data-table-filters="users"><label>User<select data-table-filter="name"><option value="">All Users</option></select></label><label>Year<select data-table-filter="year"><option value="">All Years</option></select></label><label>Month<select data-table-filter="month"><option value="">All Months</option></select></label><label>Company<select data-table-filter="company"><option value="">All Companies</option></select></label><label>Department<select data-table-filter="department"><option value="">All Department</option></select></label><button type="button" data-table-reset="users">Reset</button></div><div class="table"><table><thead><tr><th>User</th><th>Department</th><th>Company</th><th>Service Count</th><th>Services Used</th><th>Selected Period</th><th>Total Hours</th><th>Tokens Consumed</th><th>Sessions</th><th>Hours / Session</th></tr></thead><tbody id="tbody"></tbody></table></div></article></div>
+      <div class="panel-grid single-report-panel"><article class="panel widget wide"><div class="user-summary-toolbar">
+          <h2>User Usage Summary</h2>
+          <div class="user-summary-date-filters" role="group" aria-label="User Summary date range">
+            <label for="userSummaryStartDate">Start Date<input id="userSummaryStartDate" type="date" aria-describedby="userSummaryDateError"></label>
+            <label for="userSummaryEndDate">End Date<input id="userSummaryEndDate" type="date" aria-describedby="userSummaryDateError"></label>
+          </div>
+        </div>
+        <p id="userSummaryDateError" class="date-filter-error" role="status" hidden></p>
+        <div class="user-summary-actions"><button type="button" class="user-summary-clear-filters">Clear Column Filters</button><span class="user-summary-results" role="status" aria-live="polite"></span></div><div class="table user-summary-table-scroll" tabindex="0" role="region" aria-label="User Usage Summary table"><table><thead><tr><th scope="col" data-sort-key="name" aria-sort="none">User</th><th scope="col" data-sort-key="department" aria-sort="none">Department</th><th scope="col" data-sort-key="company" aria-sort="none">Company</th><th scope="col" data-sort-key="serviceCount" aria-sort="none">Service Count</th><th scope="col" data-sort-key="services" aria-sort="none">Services Used</th><th scope="col" data-sort-key="period" aria-sort="none">Selected Period</th><th scope="col" data-sort-key="hours" aria-sort="none">Total Hours</th><th scope="col" data-sort-key="tokens" aria-sort="none">Tokens Consumed</th><th scope="col" data-sort-key="sessions" aria-sort="none">Sessions</th><th scope="col" data-sort-key="hoursPerSession" aria-sort="none">Hours / Session</th></tr></thead><tbody id="tbody"></tbody></table></div></article></div>
     </section>
 
   </main>
@@ -120,87 +123,6 @@
   <script src="js/views/ChartRenderer.js?v=20260921-oop7"></script>
   <script src="js/views/CreditsOverviewView.js?v=20260922-oop9"></script>
   <script src="js/views/UsageTableView.js?v=20260923-oop12"></script>
-  <script id="userSummaryServiceTokenPatch">
-  (() => {
-    'use strict';
-    const OOP = window.AVEVA_OOP;
-    if (!OOP?.UsageTableView) return;
-    const proto = OOP.UsageTableView.prototype;
-    proto.serviceTokenKey = function serviceTokenKey(value) {
-      const text = String(value || '').normalize('NFKC').toLowerCase().replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
-      if (/unified\s+engineering|spectrum/.test(text)) return 'unified-engineering';
-      if (/\be3d\b|everything\s*3d/.test(text)) return 'everything-3d';
-      if (/\bengineering\b/.test(text)) return 'engineering';
-      return `raw:${this.utils.normalize(text)}`;
-    };
-    proto.render = function renderUserUsageWithServiceTokens() {
-      const filters = this.filters;
-      const range = filters.startDate && filters.endDate;
-      const start = range ? new Date(`${filters.startDate}T00:00:00`) : null;
-      const end = range ? new Date(`${filters.endDate}T23:59:59.999`) : null;
-      const rows = this.repository.viewUsage.filter((row) =>
-        (!filters.name || row.name === filters.name) && (!filters.company || row.company === filters.company) &&
-        (!filters.department || row.department === filters.department) && (range
-          ? row.start instanceof Date && row.start >= start && row.start <= end
-          : (!filters.year || String(row.year) === String(filters.year)) && (!filters.month || String(row.month) === String(filters.month))));
-      const grouped = new Map();
-      rows.forEach((row) => {
-        const key = this.utils.normalize(row.name) || row.email;
-        const summary = grouped.get(key) || { ...row, hours: 0, sessions: 0, services: new Set(), periods: new Set() };
-        summary.hours += row.hours; summary.sessions += 1;
-        if (row.service) summary.services.add(row.service);
-        if (row.period) summary.periods.add(row.period);
-        grouped.set(key, summary);
-      });
-      const tokenByUser = new Map();
-      const tokenByUserService = new Map();
-      this.repository.transactions.filter((row) => row.agreementId === this.config.activeAgreement && row.token < 0 && (range
-        ? row.date instanceof Date && row.date >= start && row.date <= end
-        : (!filters.year || String(row.date.getFullYear()) === String(filters.year)) &&
-          (!filters.month || String(row.date.getMonth() + 1) === String(filters.month)))).forEach((row) => {
-        const employee = this.repository.findEmployee(row.user);
-        if ((filters.name && employee?.name !== filters.name) || (filters.company && employee?.company !== filters.company) ||
-            (filters.department && employee?.department !== filters.department)) return;
-        if ((filters.name || filters.company || filters.department) && !employee) return;
-        const key = this.utils.normalize(employee?.name || row.user) || row.user;
-        const token = Math.abs(row.token);
-        tokenByUser.set(key, (tokenByUser.get(key) || 0) + token);
-        const serviceKey = this.serviceTokenKey(row.product);
-        const serviceTokens = tokenByUserService.get(key) || new Map();
-        serviceTokens.set(serviceKey, (serviceTokens.get(serviceKey) || 0) + token);
-        tokenByUserService.set(key, serviceTokens);
-      });
-      grouped.forEach((summary, key) => {
-        summary.tokens = tokenByUser.get(key) || 0;
-        summary.serviceTokens = tokenByUserService.get(key) || new Map();
-      });
-      const summaries = [...grouped.values()].sort((a, b) =>
-        (Number(b.tokens) || 0) - (Number(a.tokens) || 0) ||
-        (Number(b.hours) || 0) - (Number(a.hours) || 0) ||
-        String(a.name).localeCompare(String(b.name), 'en', { sensitivity: 'base' })
-      ).slice(0, 500);
-      const body = this.document.getElementById('tbody');
-      if (!body) return summaries;
-      const escape = (value) => this.utils.escapeHtml(value);
-      body.innerHTML = summaries.length ? summaries.map((row) => {
-        const periods = [...row.periods].sort();
-        const period = periods.length > 1 ? `${periods[0]} to ${periods[periods.length - 1]}` : periods[0] || 'N/A';
-        const services = [...row.services].filter(Boolean).sort((a, b) => String(a).localeCompare(String(b), 'en', { sensitivity: 'base' }));
-        const serviceList = services.length
-          ? `<div class="user-service-list">${services.map((service) => {
-              const tokens = row.serviceTokens?.get(this.serviceTokenKey(service)) || 0;
-              return `<div class="user-service-line"><span class="user-service-name">${escape(service)}</span><span class="user-service-token">${this.utils.format(tokens, 0)} tokens</span></div>`;
-            }).join('')}</div>`
-          : '<span class="user-service-empty">N/A</span>';
-        return `<tr><td>${escape(row.name)}</td><td>${escape(row.department)}</td><td>${escape(row.company)}</td>` +
-          `<td class="user-service-count"><strong>${services.length}</strong></td><td>${serviceList}</td><td>${escape(period)}</td>` +
-          `<td>${this.utils.format(row.hours)}</td><td>${this.utils.format(row.tokens, 0)}</td>` +
-          `<td>${row.sessions}</td><td>${this.utils.format(row.sessions ? row.hours / row.sessions : 0)}</td></tr>`;
-      }).join('') : '<tr><td colspan="10">No users found for the selected filters</td></tr>';
-      return summaries;
-    };
-  })();
-  </script>
   <script src="js/views/LoadingView.js?v=20260921-oop2"></script>
   <script src="js/controllers/DashboardController.js?v=20260921-oop6"></script>
   <script src="js/controllers/NavigationController.js?v=20260921-oop8"></script>

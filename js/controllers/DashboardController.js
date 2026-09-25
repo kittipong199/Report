@@ -9,9 +9,7 @@
 
     build() {
       this.repository.refreshEnrichedUsage();
-      this.filters.fill();
-      this.charts.fillFilters();
-      this.table.fillFilters();
+      this.charts.refreshDepartmentFilters();
       return this.render();
     }
 

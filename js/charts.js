@@ -19,58 +19,6 @@
     String(date.getMonth() + 1).padStart(2, '0'),
     String(date.getDate()).padStart(2, '0')
   ].join('-');
-  // Management feedback build 59: every supported chart consumes one global scope.
-  AVEVA.getChartFilters = () => AVEVA.getFilters();
-
-  AVEVA.fillChartFilters = () => {
-    const setOptions = (scope, key, values, allLabel) => {
-      const select = document.querySelector(
-        `[data-chart-filters="${scope}"] [data-chart-filter="${key}"]`
-      );
-      if (!select) return;
-      const selected = select.value;
-      select.innerHTML = `<option value="">${allLabel}</option>`;
-      [...new Set(values)]
-        .filter((value) => value !== null && value !== undefined && value !== '')
-        .sort((a, b) => typeof a === 'number' ? a - b : String(a).localeCompare(String(b)))
-        .forEach((value) => select.add(new Option(value, value)));
-      if (selected && [...select.options].some((option) => option.value === selected)) {
-        select.value = selected;
-      } else if (key === 'year' && values.length) {
-        select.value = String(Math.max(...values.map(Number).filter(Number.isFinite)));
-      }
-    };
-    const usage = AVEVA.data.viewUsage;
-    ['users', 'services'].forEach((scope) => {
-      setOptions(scope, 'year', [
-        ...usage.map((row) => row.year),
-        ...AVEVA.data.planHours.map((row) => row.year)
-      ], 'All Years');
-      setOptions(scope, 'month', [
-        ...usage.map((row) => row.month),
-        ...AVEVA.data.planHours.map((row) => row.month)
-      ], 'All Months');
-      setOptions(scope, 'company', usage.map((row) => row.company), 'All Companies');
-      setOptions(scope, 'department', usage.map((row) => row.department), 'All Department');
-    });
-  };
-
-  AVEVA.chartUsageRows = (scope) => {
-    const filters = AVEVA.getChartFilters(scope);
-    const range = filters.startDate && filters.endDate;
-    const start = range ? new Date(`${filters.startDate}T00:00:00`) : null;
-    const end = range ? new Date(`${filters.endDate}T23:59:59.999`) : null;
-    return AVEVA.data.viewUsage.filter((row) =>
-      (!filters.company || row.company === filters.company) &&
-      (!filters.department || row.department === filters.department) &&
-      (!filters.user || row.name === filters.user) &&
-      (range
-        ? row.start instanceof Date && row.start >= start && row.start <= end
-        : (!filters.year || String(row.year) === String(filters.year)) &&
-          (!filters.month || String(row.month) === String(filters.month)))
-    );
-  };
-
   AVEVA.groupUsage = (rows, labelKey, identityKey = labelKey) => {
     const grouped = new Map();
 
@@ -363,12 +311,7 @@
     canvas.setAttribute('aria-label', data.map((item) => `${item[0]} ${AVEVA.fmt(item[1], 0)} credits, ${(item[1] / total * 100).toFixed(1)} percent`).join('; '));
   };
 
-  AVEVA.drawTokenMonthComparison = (id) => {
-    const filters = AVEVA.getFilters();
-    const txRows = AVEVA.getFilteredTransactions
-      ? AVEVA.getFilteredTransactions()
-      : AVEVA.data.tx.filter((row) => row.agreementId === AVEVA.ACTIVE_AGREEMENT && row.token < 0);
-    const usageRows = AVEVA.filteredUsage();
+  AVEVA.drawTokenMonthComparison = (id, { filters, txRows, usageRows }) => {
     const tokenRows = txRows.filter((row) => row.token < 0 && row.date instanceof Date);
     const tokenByMonth = new Map();
     tokenRows.forEach((row) => {
@@ -390,10 +333,10 @@
       const periodText = filters.startDate && filters.endDate
         ? `${filters.startDate} → ${filters.endDate}`
         : filters.year ? `${filters.year}${filters.month ? ` / Month ${filters.month}` : ''}` : 'All available dates';
-      scopeLabel.textContent = `Filtered scope · ${periodText}`;
+      scopeLabel.textContent = `Reporting period · ${periodText}`;
     }
     const latest = AVEVA.latestDate([
-      ...tokenRows.map((row) => row.date),
+      ...txRows.map((row) => row.date),
       ...usageRows.map((row) => row.start instanceof Date ? row.start : new Date(row.start))
     ]);
     const latestTarget = AVEVA.$('tokenLatestData');
@@ -401,12 +344,23 @@
 
     const { context, width, height } = AVEVA.prepareCanvas(id);
     context.clearRect(0, 0, width, height);
-    if (!data.length) return AVEVA.drawNoData(context, width, height);
+    const targetCanvas = AVEVA.$(id);
+    targetCanvas.onmousemove = null;
+    targetCanvas.onmouseleave = null;
+    const oldTooltip = document.querySelector('.chart-hover-tooltip');
+    if (oldTooltip) oldTooltip.hidden = true;
+    if (!data.length) {
+      targetCanvas.setAttribute('aria-label', 'No data for the selected date range.');
+      return AVEVA.drawNoData(context, width, height);
+    }
 
     const currentDate = new Date();
     const currentPeriod = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-    const maxTokens = Math.max(...data.map((row) => row.tokens || 0), 1) * 1.12;
-    const maxHours = Math.max(...data.map((row) => row.hours || 0), 1) * 1.12;
+    const maxValue = Math.max(
+      ...data.map((row) => row.tokens || 0),
+      ...data.map((row) => row.hours || 0),
+      1
+    ) * 1.12;
     const compact = width < 620;
     const left = compact ? 52 : 66;
     const right = compact ? 52 : 66;
@@ -423,12 +377,8 @@
       const y = top + plotHeight * (1 - tick / 4);
       context.beginPath(); context.moveTo(left, y); context.lineTo(width - right, y); context.stroke();
       context.fillStyle = '#526579';
-      context.textAlign = 'right'; context.fillText(AVEVA.fmt(maxTokens * tick / 4, 0), left - 7, y + 4);
-      context.textAlign = 'left'; context.fillText(AVEVA.fmt(maxHours * tick / 4, 0), width - right + 7, y + 4);
+      context.textAlign = 'right'; context.fillText(AVEVA.fmt(maxValue * tick / 4, 0), left - 7, y + 4);
     }
-    context.fillStyle = '#526579';
-    context.textAlign = 'left'; context.fillText('Tokens Consumed', 4, top - 13);
-    context.textAlign = 'right'; context.fillText('Usage Hours', width - 4, top - 13);
 
     const hitAreas = [];
     const barValueLabel = (value) => compact && Math.abs(value) >= 1000 ? `${(value / 1000).toFixed(1)}k` : AVEVA.fmt(value, 0);
@@ -437,7 +387,7 @@
       const tokenX = center - gap / 2 - barWidth;
       const hourX = center + gap / 2;
       if (row.tokens !== null) {
-        const barHeight = Math.max(1, row.tokens / maxTokens * plotHeight);
+        const barHeight = row.tokens / maxValue * plotHeight;
         const barY = top + plotHeight - barHeight;
         context.fillStyle = '#0877b9';
         AVEVA.fillRoundedColumn(context, tokenX, barY, barWidth, barHeight, 4);
@@ -445,7 +395,7 @@
         context.fillText(barValueLabel(row.tokens), tokenX + barWidth / 2, Math.max(top + 9, barY - 5));
       }
       if (row.hours !== null) {
-        const barHeight = Math.max(1, row.hours / maxHours * plotHeight);
+        const barHeight = row.hours / maxValue * plotHeight;
         const barY = top + plotHeight - barHeight;
         context.fillStyle = '#df8b24';
         AVEVA.fillRoundedColumn(context, hourX, barY, barWidth, barHeight, 4);
@@ -466,10 +416,10 @@
     });
 
     context.fillStyle = '#0877b9'; context.fillRect(left, 9, 12, 12);
-    context.fillStyle = '#526579'; context.textAlign = 'left'; context.fillText('Tokens Consumed (left axis)', left + 18, 20);
+    context.fillStyle = '#526579'; context.textAlign = 'left'; context.fillText('Tokens Consumed', left + 18, 20);
     const secondLegendX = Math.min(width - right - 135, left + 190);
     context.fillStyle = '#df8b24'; context.fillRect(secondLegendX, 9, 12, 12);
-    context.fillStyle = '#526579'; context.fillText('Usage Hours (right axis)', secondLegendX + 18, 20);
+    context.fillStyle = '#526579'; context.fillText('Usage Hours', secondLegendX + 18, 20);
 
     const canvas = AVEVA.$(id);
     canvas.onmousemove = (event) => {
@@ -524,25 +474,4 @@
     });
   };
 
-  AVEVA.drawCharts = (usageRows, governance) => {
-    const userRows = AVEVA.chartUsageRows('users');
-    const departmentData = AVEVA.groupUsage(userRows, 'department');
-    if (AVEVA.selectedDepartment && !departmentData.some(([name]) => name === AVEVA.selectedDepartment)) AVEVA.selectedDepartment = '';
-    AVEVA.drawCategoryColumns('userChart', departmentData, ' h', (department) => {
-      AVEVA.selectedDepartment = department;
-      AVEVA.renderDepartmentDrilldown(userRows, department);
-    });
-    AVEVA.renderDepartmentDrilldown(userRows, AVEVA.selectedDepartment || '');
-    const deptLatest = AVEVA.latestDate(userRows.map((row) => row.start instanceof Date ? row.start : new Date(row.start)));
-    const deptLatestTarget = AVEVA.$('departmentLatestData');
-    if (deptLatestTarget) deptLatestTarget.textContent = AVEVA.latestDataLabel(deptLatest);
-
-    AVEVA.drawServiceMix('serviceChart', [...governance.serviceConsumption.entries()]);
-    const serviceRows = AVEVA.getFilteredTransactions ? AVEVA.getFilteredTransactions().filter((row) => row.token < 0) : [];
-    const serviceLatest = AVEVA.latestDate(serviceRows.map((row) => row.date));
-    const serviceLatestTarget = AVEVA.$('serviceLatestData');
-    if (serviceLatestTarget) serviceLatestTarget.textContent = AVEVA.latestDataLabel(serviceLatest);
-
-    AVEVA.drawTokenMonthComparison('overviewTokenChart');
-  };
 })();

@@ -15,3 +15,14 @@
 .department-detail-table th:nth-child(5),.department-detail-table th:nth-child(6){text-align:right}
 @media(max-width:900px){.department-detail-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.department-detail-kpis{grid-template-columns:1fr 1fr;gap:8px}.department-detail-kpis strong{font-size:18px}}
+
+.department-detail-toolbar{display:flex;justify-content:flex-end;margin:0 0 10px}
+.department-detail-toolbar button,.department-filter-popover button{border:1px solid #bfd0df;border-radius:6px;background:#fff;padding:6px 10px;color:#245783;font:600 11px "Segoe UI",Arial;cursor:pointer}
+.department-column-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;white-space:nowrap}
+.department-column-filter-button{display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;padding:4px;border:1px solid transparent;border-radius:5px;background:transparent;color:#526579;cursor:pointer;flex-shrink:0}
+.department-column-filter-button[aria-pressed="true"]{background:#d9effc;color:#0069a6;border-color:#0877b9;box-shadow:inset 0 -3px #0877b9}
+.department-column-filter-button:focus-visible{outline:2px solid #0877b9;outline-offset:2px}
+.department-filter-popover{position:fixed;inset:auto;margin:0;width:224px;max-width:calc(100vw - 16px);box-sizing:border-box;padding:12px;border:1px solid #bfd0df;border-radius:8px;background:#fff;color:#173f62;box-shadow:0 8px 24px #173f6230;text-align:left;font:12px "Segoe UI",Arial}
+.department-filter-popover strong{display:block;margin-bottom:10px}
+.department-filter-popover label{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;font-size:11px}
+.department-filter-popover input{width:100%;min-width:0;box-sizing:border-box;padding:7px;border:1px solid #bfd0df;border-radius:5px;font:12px "Segoe UI",Arial}

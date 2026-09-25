@@ -3,8 +3,8 @@
   'use strict';
   const OOP = (window.AVEVA_OOP = window.AVEVA_OOP || {});
   OOP.EventController = class EventController {
-    constructor({ loader, state, loadingView, filters, dashboard, table, charts, config, documentRef = document, windowRef = window }) {
-      Object.assign(this, { loader, state, loadingView, filters, dashboard, table, charts, config, document: documentRef, window: windowRef });
+    constructor({ loader, state, loadingView, dashboard, table, charts, config, documentRef = document, windowRef = window }) {
+      Object.assign(this, { loader, state, loadingView, dashboard, table, charts, config, document: documentRef, window: windowRef });
       this.resizeFrame = null;
     }
     byId(id) { return this.document.getElementById(id); }
@@ -41,42 +41,6 @@
         } finally { this.loadingView.hide(); }
       };
     }
-    bindMainFilters() {
-      this.document.querySelectorAll('.filters select, .filters input').forEach((element) => {
-        element.onchange = () => {
-          if (element.id === 'fYear') this.filters.syncYearMonth();
-          if (element.id === 'fCompany') {
-            this.byId('fDept').value = ''; this.byId('fUser').value = ''; this.filters.fill();
-          } else if (element.id === 'fDept') {
-            this.byId('fUser').value = ''; this.filters.fill();
-          }
-          if (this.filters.validateDateRange()) this.dashboard.render();
-        };
-      });
-      const reset = this.byId('reset');
-      if (reset) reset.onclick = () => { this.filters.reset(); this.dashboard.render(); };
-    }
-    latestOptionYear(element) {
-      return [...element.options].map((option) => Number(option.value)).filter(Number.isFinite).reduce((latest, year) => Math.max(latest, year), 0) || '';
-    }
-    bindLocalFilters() {
-      this.document.querySelectorAll('[data-chart-filter]').forEach((element) => { element.onchange = () => this.dashboard.render(); });
-      this.document.querySelectorAll('[data-chart-reset]').forEach((button) => {
-        button.onclick = () => {
-          const container = this.document.querySelector(`[data-chart-filters="${button.dataset.chartReset}"]`);
-          container?.querySelectorAll('[data-chart-filter]').forEach((element) => { element.value = element.dataset.chartFilter === 'year' ? this.latestOptionYear(element) : ''; });
-          this.dashboard.render();
-        };
-      });
-      this.document.querySelectorAll('[data-table-filter]').forEach((element) => { element.onchange = () => this.table.render(); });
-      this.document.querySelectorAll('[data-table-reset]').forEach((button) => {
-        button.onclick = () => {
-          const container = this.document.querySelector(`[data-table-filters="${button.dataset.tableReset}"]`);
-          container?.querySelectorAll('[data-table-filter]').forEach((element) => { element.value = element.dataset.tableFilter === 'year' ? this.latestOptionYear(element) : ''; });
-          this.table.render();
-        };
-      });
-    }
     bindResize() {
       this.window.addEventListener('resize', () => {
         if (!this.state.data.usage.length) return;
@@ -84,10 +48,10 @@
         this.resizeFrame = this.window.requestAnimationFrame(() => this.dashboard.render());
       });
     }
-    bind() { this.bindCreditSeries(); this.bindLoading(); this.bindMainFilters(); this.bindLocalFilters(); this.bindResize(); }
+    bind() { this.bindCreditSeries(); this.bindLoading(); this.charts.bindDepartmentFilters(); this.charts.bindTokenComparisonFilters(); this.table.bindControls(); this.bindResize(); }
     async start() {
       this.bind();
-      this.filters.fill(); this.charts.fillFilters(); this.table.fillFilters();
+      this.charts.fillDepartmentFilters();
       this.state.setLoading(true); this.loadingView.show('Loading AVEVA report data…');
       try { await this.loader.autoLoad(); }
       catch (error) {

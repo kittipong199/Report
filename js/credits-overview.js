@@ -92,7 +92,6 @@
   };
 
   const dateLabel = (date) => date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  const monthLabel = (period) => new Date(`${period}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
   const compactNumber = (value) => Math.abs(value) >= 1000 ? `${(value / 1000).toFixed(Math.abs(value) >= 100000 ? 0 : 1)}k` : AVEVA.fmt(value, 0);
 
   const attachTooltip = (canvas, points, formatter) => {
@@ -205,32 +204,6 @@
     canvas.setAttribute('aria-label', `Credit balance forecast from ${dateLabel(daily[0].date)} to ${dateLabel(status.contractEnd)}. Latest actual balance ${AVEVA.fmt(latest.balance, 0)} credits.`);
   };
 
-  const scopeDetails = () => {
-    const filters = AVEVA.getFilters();
-    const scope = AVEVA.dateScope();
-    const period = scope.mode === 'RANGE'
-      ? `${dateLabel(scope.start)} – ${dateLabel(scope.end)}`
-      : scope.mode === 'MONTH'
-        ? monthLabel(`${filters.year}-${String(filters.month).padStart(2, '0')}`)
-        : scope.mode === 'YEAR' ? filters.year : 'All available dates';
-    return { filters, scope, period };
-  };
-
-  AVEVA.renderCreditsActiveFilters = () => {
-    const target = AVEVA.$('creditsActiveFilters');
-    if (!target) return;
-    const { filters, scope, period } = scopeDetails();
-    const chips = [
-      '<strong>Active Filters</strong>',
-      `<span class="credits-filter-chip"><b>Period</b> ${AVEVA.escapeHtml(period)}</span>`,
-      `<span class="credits-filter-chip"><b>Company</b> ${AVEVA.escapeHtml(filters.company || 'All Companies')}</span>`,
-      `<span class="credits-filter-chip"><b>Department</b> ${AVEVA.escapeHtml(filters.department || 'All Departments')}</span>`
-    ];
-    if (filters.user) chips.push(`<span class="credits-filter-chip"><b>User</b> ${AVEVA.escapeHtml(filters.user)}</span>`);
-    if (scope.mode === 'RANGE') chips.push('<span class="credits-filter-chip credits-filter-priority"><b>Applied Filter</b> Date Range overrides Year and Month</span>');
-    target.innerHTML = chips.join('');
-  };
-
   AVEVA.renderCreditsOverview = (governance = AVEVA.calcGov()) => {
     const page = document.querySelector('[data-credits-overview]');
     if (!page || page.hidden) return;
@@ -244,9 +217,6 @@
     const ideal = AVEVA.calculateIdealBurndown();
     const status = AVEVA.calculateCreditStatus(latest, burnRate);
 
-    AVEVA.$('creditsUniversal').textContent = latest ? AVEVA.fmt(latest.balance, 0) : 'N/A';
-    AVEVA.$('creditsTotal').textContent = latest ? AVEVA.fmt(latest.balance, 0) : 'N/A';
-    AVEVA.$('creditsLatestDate').textContent = latest ? `Latest balance: ${dateLabel(latest.date)}` : 'Waiting for Burndown Forecast data';
     AVEVA.$('creditsStatus').textContent = status.status;
     AVEVA.$('creditsStatusCard').className = `credits-inline-status credits-status-card ${status.status === 'N/A' ? 'status-unavailable' : `risk-${status.status.toLowerCase()}`}`;
     AVEVA.$('creditsDepletion').textContent = status.depletion ? dateLabel(status.depletion) : 'N/A';
@@ -261,7 +231,6 @@
     if (currentPeriod) currentPeriod.textContent = governance.cur === 'N/A' ? 'No matching month' : `Month ${governance.cur}`;
     const overviewLatest = AVEVA.$('overviewLatestData');
     if (overviewLatest) overviewLatest.textContent = AVEVA.latestDataLabel(latest?.date || null);
-    AVEVA.renderCreditsActiveFilters();
     AVEVA.drawCreditsBurndown(daily, forecast, ideal, status);
 
     page.dataset.currentBalance = latest ? String(latest.balance) : '';

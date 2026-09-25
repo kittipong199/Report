@@ -109,36 +109,15 @@
   .credits-overview-page #creditsStatusCard.risk-red #creditsStatus { color: #a7332a; }
   .credits-overview-page #creditsStatusCard.status-unavailable #creditsStatus { color: #8796a3; }
 
-  .credits-overview-page .credits-active-filters {
-    min-height: 32px;
-    gap: 6px;
-    padding: 5px 10px;
-    font-size: 9px;
-  }
-  .credits-overview-page .credits-active-filters strong { font-size: 9px; }
-  .credits-overview-page .credits-filter-chip { gap: 4px; padding: 3px 7px; }
 
   .credits-overview-page .credits-summary > .widget {
-    grid-template-columns: minmax(250px,.78fr) minmax(0,1.7fr);
-    min-height: 96px;
     padding: 9px 16px;
     align-items: center;
   }
-  .credits-overview-page .credits-summary h2 { font-size: 12px; }
-  .credits-overview-page .credits-summary dl { width: min(320px,100%); margin: 5px 0 3px; }
-  .credits-overview-page .credits-summary dl > div {
-    grid-template-columns: 112px 1fr;
-    gap: 10px;
-    padding: 1px 0;
-  }
-  .credits-overview-page .credits-summary dt { font-size: 9px; }
-  .credits-overview-page .credits-summary dd { font-size: 13px; }
   .credits-overview-page .credits-summary small { font-size: 8.5px; line-height: 1.2; }
 
   .credits-overview-page .credits-chart-explainer {
     min-width: 0;
-    padding-left: 16px;
-    border-left: 1px solid #d5dde3;
     color: #526579;
   }
   .credits-overview-page .credits-chart-explainer > p {
